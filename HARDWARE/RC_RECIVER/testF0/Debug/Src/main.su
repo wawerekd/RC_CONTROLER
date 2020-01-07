@@ -1,0 +1,5 @@
+main.c:139:6:SystemClock_Config	96	static
+main.c:335:6:nRF24L01_config	72	static
+main.c:89:5:main	48	static
+main.c:367:5:_write	8	static
+main.c:382:6:_Error_Handler	0	static

@@ -88,6 +88,8 @@ void Error_Handler(void);
 #define JOY1_PB_GPIO_Port GPIOB
 #define JOY2_PB_Pin GPIO_PIN_2
 #define JOY2_PB_GPIO_Port GPIOB
+#define MPU_PWR_Pin GPIO_PIN_14
+#define MPU_PWR_GPIO_Port GPIOB
 #define RC_PWR_Pin GPIO_PIN_15
 #define RC_PWR_GPIO_Port GPIOB
 #define MPU_INT_Pin GPIO_PIN_6
@@ -107,6 +109,8 @@ void Error_Handler(void);
 #define BUZZ_Pin GPIO_PIN_9
 #define BUZZ_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */
+
+#define DEBUG_UART  huart3
 
 /* USER CODE END Private defines */
 

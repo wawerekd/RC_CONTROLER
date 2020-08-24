@@ -1,0 +1,12 @@
+main.c:101:5:main	16	static
+main.c:166:6:SystemClock_Config	200	static
+main.c:223:13:MX_TIM6_Init	24	static
+main.c:262:13:MX_USART2_UART_Init	8	static
+main.c:297:13:MX_GPIO_Init	48	static
+main.c:337:6:HAL_TIM_PeriodElapsedCallback	16	static
+main.c:347:6:HAL_GPIO_EXTI_Callback	16	static
+main.c:357:6:fnA	8	static
+main.c:362:6:fnB	8	static
+main.c:368:6:fnC	4	static
+main.c:377:6:HAL_SYSTICK_Callback	4	static
+main.c:389:6:Error_Handler	4	static

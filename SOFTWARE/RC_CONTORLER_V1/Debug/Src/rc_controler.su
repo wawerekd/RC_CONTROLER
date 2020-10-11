@@ -1,0 +1,5 @@
+rc_controler.c:5:10:map_values	8	static
+rc_controler.c:11:10:map_values_sbus	0	static
+rc_controler.c:21:10:reverse_channel	0	static
+rc_controler.c:25:6:update_rc_mode	0	static
+rc_controler.c:32:6:update_rc_channels	32	static

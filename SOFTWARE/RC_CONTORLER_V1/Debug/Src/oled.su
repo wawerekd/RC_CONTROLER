@@ -1,0 +1,3 @@
+oled.c:99:6:oledInit	8	static
+oled.c:107:6:oledPrintInitScreen	56	static
+oled.c:139:6:oledDrawValueBars	48	static

@@ -1,7 +1,7 @@
 [PreviousGenFiles]
-HeaderPath=C:/Users/Damian/Desktop/RC_CONTROLER-master/SOFTWARE/RC_CONTORLER_V1/Inc
+HeaderPath=C:/Users/Damian/Desktop/RC_CONTROLER/SOFTWARE/RC_CONTORLER_V1/Inc
 HeaderFiles=stm32f1xx_it.h;stm32f1xx_hal_conf.h;main.h;
-SourcePath=C:/Users/Damian/Desktop/RC_CONTROLER-master/SOFTWARE/RC_CONTORLER_V1/Src
+SourcePath=C:/Users/Damian/Desktop/RC_CONTROLER/SOFTWARE/RC_CONTORLER_V1/Src
 SourceFiles=stm32f1xx_it.c;stm32f1xx_hal_msp.c;main.c;
 
 [PreviousLibFiles]

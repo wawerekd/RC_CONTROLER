@@ -23,7 +23,7 @@
 // 	 -Joystick's
 //	 -Potentiometers
 //	 -Switches
-// -Test NRF24L01 connection
+// -Test NRF24L01 connection DONE
 // -Test MPU6050 CONECTION
 // -Test ENCODER processing INTERUPTS
 // -Test PUSH BUTTONS
@@ -46,6 +46,8 @@
 
 //Libaries for MPU6050
 #include "hal_mpu6050.h"
+//Libaries for main RC_Contorler activies
+#include "rc_controler.h"
 
 /* USER CODE END Includes */
 
@@ -73,7 +75,6 @@ I2C_HandleTypeDef hi2c2;
 
 SPI_HandleTypeDef hspi1;
 
-TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart2;
@@ -91,7 +92,12 @@ uint8_t dataReady = 0;
 float ax = 0, ay = 0, az = 0, gx = 0, gy = 0, gz = 0;
 MPU6050_Result mpu_result;
 
-//ADC _DMA _
+char myTxData[32] = "Hello World!";
+uint16_t txValues[16];
+char AckPayload[32];
+
+extern RC_Channels rc_channels;
+//ADC _DMA _ VALUES
 
 uint16_t adc_values[11];
 /* USER CODE END PV */
@@ -104,7 +110,6 @@ static void MX_ADC1_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_SPI1_Init(void);
-static void MX_TIM1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
@@ -151,7 +156,6 @@ int main(void) {
 	MX_I2C1_Init();
 	MX_I2C2_Init();
 	MX_SPI1_Init();
-	MX_TIM1_Init();
 	MX_TIM6_Init();
 	MX_USART2_UART_Init();
 	MX_USART3_UART_Init();
@@ -163,10 +167,12 @@ int main(void) {
 	oledPrintInitScreen();
 	// NRF24L01
 	initNRF24andPrintStatus();
-	// MPU6050
 
-	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, SET);
-	HAL_Delay(100);
+	// MPU6050
+	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, RESET);
+	HAL_Delay(250);
+	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, SET); //wlacz zasilanie do MPU
+	HAL_Delay(50);
 	mpu_result = MPU6050_Init(&hi2c2, &imu, MPU6050_Device_0,
 			MPU6050_Accelerometer_2G, MPU6050_Gyroscope_250s);
 	HAL_Delay(10);
@@ -178,10 +184,15 @@ int main(void) {
 	} else {
 		printf("MPU6050 initialization FAIL!\n");
 	}
+
+	//RC_CHANNELS_INIT
+	update_rc_mode(RC_SIMPLE_JOYSTICK);
 	//DMA start
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*) adc_values, 11);
 	//TIM6 start in interrupt mode
 	HAL_TIM_Base_Start_IT(&htim6);
+//	HAL_TIM_Encoder_Start(&htim1,TIM_CHANNEL_ALL);
+//	HAL_TIM_Encoder_Start(&htim1,TIM_CHANNEL_2);
 
 	/* USER CODE END 2 */
 
@@ -191,9 +202,18 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-		//HAL_Delay(400);
-		IdleLoop();
-		//printf("%s", uart_message);
+		if (NRF24_write(txValues, 32)) {
+
+			memcpy(txValues, rc_channels.scaled_values, 22);
+//			printf("%4d\t%4d\t%4d\t%4d\r\n", txValues[0], txValues[1],
+//					txValues[2], txValues[3]);
+
+			HAL_GPIO_TogglePin(LED_BAT_GPIO_Port, LED_BAT_Pin);
+
+		} else {
+			printf("FAILED! \n");
+		}
+		HAL_Delay(50);
 
 	}
 	/* USER CODE END 3 */
@@ -452,54 +472,6 @@ static void MX_SPI1_Init(void) {
 }
 
 /**
- * @brief TIM1 Initialization Function
- * @param None
- * @retval None
- */
-static void MX_TIM1_Init(void) {
-
-	/* USER CODE BEGIN TIM1_Init 0 */
-
-	/* USER CODE END TIM1_Init 0 */
-
-	TIM_Encoder_InitTypeDef sConfig = { 0 };
-	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
-
-	/* USER CODE BEGIN TIM1_Init 1 */
-
-	/* USER CODE END TIM1_Init 1 */
-	htim1.Instance = TIM1;
-	htim1.Init.Prescaler = 0;
-	htim1.Init.CounterMode = TIM_COUNTERMODE_CENTERALIGNED3;
-	htim1.Init.Period = 0;
-	htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
-	htim1.Init.RepetitionCounter = 0;
-	htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
-	sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
-	sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
-	sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-	sConfig.IC1Filter = 0;
-	sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
-	sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
-	sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-	sConfig.IC2Filter = 0;
-	if (HAL_TIM_Encoder_Init(&htim1, &sConfig) != HAL_OK) {
-		Error_Handler();
-	}
-	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig)
-			!= HAL_OK) {
-		Error_Handler();
-	}
-	/* USER CODE BEGIN TIM1_Init 2 */
-
-	/* USER CODE END TIM1_Init 2 */
-
-}
-
-/**
  * @brief TIM6 Initialization Function
  * @param None
  * @retval None
@@ -516,9 +488,9 @@ static void MX_TIM6_Init(void) {
 
 	/* USER CODE END TIM6_Init 1 */
 	htim6.Instance = TIM6;
-	htim6.Init.Prescaler = 719;
+	htim6.Init.Prescaler = 35;
 	htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim6.Init.Period = 5999;
+	htim6.Init.Period = 9999;
 	htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
 	if (HAL_TIM_Base_Init(&htim6) != HAL_OK) {
 		Error_Handler();
@@ -675,6 +647,22 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
+	/*Configure GPIO pin : PA8 */
+	GPIO_InitStruct.Pin = GPIO_PIN_8;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+	/*Configure GPIO pin : ENC_A_EXT_Pin */
+	GPIO_InitStruct.Pin = ENC_A_EXT_Pin;
+	GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+	GPIO_InitStruct.Pull = GPIO_PULLUP;
+	HAL_GPIO_Init(ENC_A_EXT_GPIO_Port, &GPIO_InitStruct);
+
+	/* EXTI interrupt init*/
+	HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
 }
 
 /* USER CODE BEGIN 4 */
@@ -695,14 +683,35 @@ int _write(int fd, char *str, int len) {
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
-	//HAL_GPIO_TogglePin(LED_EXT_GPIO_Port,LED_EXT_Pin);
+	static uint8_t slow = 0;
+	slow++;
+	if (slow > 5) {
+		slow=0;
 
-	printf("%4d\t%4d\t%4d\t%4d\t%4d\t%4d\t%4d\t%4d\t%4d\t%4d\n", adc_values[0],adc_values[1],adc_values[2],adc_values[3],adc_values[4],adc_values[5],adc_values[6],adc_values[7],adc_values[8],adc_values[9]);
-    oledDrawValueBar(adc_values[5],adc_values[6],adc_values[7],adc_values[8]); // Wartosci z Joysitckow
-	//printf("\n");
+//		oledDrawValueBars(rc_channels.scaled_values[0],
+//						rc_channels.scaled_values[1], rc_channels.scaled_values[2],
+//						rc_channels.scaled_values[3]);
+		oledDrawValueBars(rc_channels.low_pass_values[0],
+				rc_channels.low_pass_values[1],rc_channels.low_pass_values[2],
+				rc_channels.low_pass_values[3]);
 
+
+	}
+	update_rc_channels(adc_values);
+	// Wartosci z Joysitckow
+
+	//Aktualizuj wartoœci z ADC do strukutry
+
+
+//	printf("%4d\t%4d\t%4d\t%4d\t\r\n", adc_values[2], adc_values[3], adc_values[9] ,adc_values[10]);
 }
 
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	if (GPIO_Pin == ENC_A_EXT_Pin) {
+		HAL_GPIO_TogglePin(LED_EXT_GPIO_Port, LED_EXT_Pin);
+	}
+}
+//}
 /* USER CODE END 4 */
 
 /**

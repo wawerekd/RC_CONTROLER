@@ -1,0 +1,11 @@
+hal_mpu6050.c:147:16:MPU6050_SetDataRate	32	static
+hal_mpu6050.c:166:16:MPU6050_SetAccelerometer	48	static
+hal_mpu6050.c:210:16:MPU6050_SetGyroscope	48	static
+hal_mpu6050.c:82:16:MPU6050_Init	40	static
+hal_mpu6050.c:252:16:MPU6050_ReadAccelerometer	48	static
+hal_mpu6050.c:272:16:MPU6050_ReadGyroscope	48	static
+hal_mpu6050.c:292:16:MPU6050_ReadTemperature	40	static
+hal_mpu6050.c:312:16:MPU6050_ReadAll	56	static
+hal_mpu6050.c:342:16:MPU6050_EnableInterrupts	40	static
+hal_mpu6050.c:365:16:MPU6050_DisableInterrupts	32	static
+hal_mpu6050.c:376:16:MPU6050_ReadInterrupts	40	static

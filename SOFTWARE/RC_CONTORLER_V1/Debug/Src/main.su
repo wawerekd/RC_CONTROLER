@@ -1,7 +1,10 @@
-main.c:226:6:SystemClock_Config	96	static
-main.c:131:5:main	72	static
-main.c:670:6:IdleLoop	8	static
-main.c:679:5:_write	8	static
-main.c:684:6:HAL_TIM_PeriodElapsedCallback	8	static
-main.c:709:6:HAL_GPIO_EXTI_Callback	0	static
-main.c:721:6:Error_Handler	0	static
+main.c:801:6:updateRcChannels	0	static
+main.c:804:6:updateScreen	16	static
+main.c:788:6:radioTransmit	8	static
+main.c:288:6:SystemClock_Config	96	static
+main.c:165:5:main	128	static
+main.c:774:6:IdleLoop	8	static
+main.c:783:5:_write	8	static
+main.c:838:6:HAL_TIM_PeriodElapsedCallback	0	static
+main.c:849:6:HAL_GPIO_EXTI_Callback	8	static
+main.c:873:6:Error_Handler	0	static

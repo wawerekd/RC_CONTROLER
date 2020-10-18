@@ -38,27 +38,36 @@
 //Standard libaries
 #include <stdio.h>
 
-//Libaries for SSD1306 OLED
+//Libraries for SSD1306 OLED
 #include "oled.h"
 
-//Libaries for NRF24L01
+//Libraries for NRF24L01
 #include "nrf.h"       // driver for NRF24L01
 
-//Libaries for MPU6050
+//Libraries for MPU6050
 #include "hal_mpu6050.h"
-//Libaries for main RC_Contorler activies
+//Libraries for main RC_Contorler activies
 #include "rc_controler.h"
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+typedef struct {
+	uint16_t interval; /* How often to call the task */
+	void (*proc)(void); /* pointer to function returning void */
+} timed_task_t;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+enum intervals {
+	INTERVAL_20_MSEC = 25,
+	INTERVAL_50_MSEC = 50,
+	INTERVAL_500_MSEC = 500,
+	INTERVAL_10_MSEC = 10,
+	INTERVAL_2_MSEC = 2,
+};
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -75,6 +84,7 @@ I2C_HandleTypeDef hi2c2;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim6;
 
 UART_HandleTypeDef huart2;
@@ -97,9 +107,20 @@ uint16_t txValues[16];
 char AckPayload[32];
 
 extern RC_Channels rc_channels;
+extern RC_Controler_Status rc_status;
+
+uint8_t enc_rotation = 0;
+uint8_t enc_clicks = 0;
+
+uint8_t chan_calib = 5;
+
 //ADC _DMA _ VALUES
 
 uint16_t adc_values[11];
+
+uint32_t updateReady = 0;
+uint32_t tick = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -113,14 +134,27 @@ static void MX_SPI1_Init(void);
 static void MX_TIM6_Init(void);
 static void MX_USART2_UART_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_TIM1_Init(void);
 /* USER CODE BEGIN PFP */
 
 void IdleLoop();   // Function  to show that app is running
 
+//MAIN TASKS
+void radioTransmit();
+void updateRcChannels();
+void updateScreen();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+const uint16_t EEPROM_ADDRESS = 0xA0;
+uint8_t data_to_write = 50;
+uint8_t data_to_read[15];
+
+static const timed_task_t timed_task[] = { { INTERVAL_50_MSEC, radioTransmit },
+		{ INTERVAL_2_MSEC, updateRcChannels },
+		{ INTERVAL_20_MSEC, updateScreen }, { 0, NULL } };
 
 /* USER CODE END 0 */
 
@@ -159,24 +193,27 @@ int main(void) {
 	MX_TIM6_Init();
 	MX_USART2_UART_Init();
 	MX_USART3_UART_Init();
+	MX_TIM1_Init();
 	/* USER CODE BEGIN 2 */
 
 	//Conected devices initializations
 	//OLED
+	// MPU6050
+//	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, RESET);
+//		HAL_Delay(1000);
 	oledInit();
 	oledPrintInitScreen();
 	// NRF24L01
 	initNRF24andPrintStatus();
 
-	// MPU6050
-	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, RESET);
-	HAL_Delay(250);
 	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, SET); //wlacz zasilanie do MPU
-	HAL_Delay(50);
+	HAL_Delay(10);
 	mpu_result = MPU6050_Init(&hi2c2, &imu, MPU6050_Device_0,
 			MPU6050_Accelerometer_2G, MPU6050_Gyroscope_250s);
 	HAL_Delay(10);
+	rc_status.mpu_init_succes = mpu_result;
 
+	// TO DO - check why MPU not always starts
 	if (mpu_result == MPU6050_Result_Ok) {
 		//HAL_GPIO_WritePin(LED_BAT_GPIO_Port,LED_BAT_Pin,SET);
 		printf("MPU6050  initialization SUCCESS!\n");
@@ -185,15 +222,38 @@ int main(void) {
 		printf("MPU6050 initialization FAIL!\n");
 	}
 
-	//RC_CHANNELS_INIT
+	//RC_CHANNELS_INIT  -  TO D0
 	update_rc_mode(RC_SIMPLE_JOYSTICK);
-	//DMA start
+	//DMA start for ADC
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*) adc_values, 11);
 	//TIM6 start in interrupt mode
 	HAL_TIM_Base_Start_IT(&htim6);
-//	HAL_TIM_Encoder_Start(&htim1,TIM_CHANNEL_ALL);
-//	HAL_TIM_Encoder_Start(&htim1,TIM_CHANNEL_2);
+	//TIM1 start as encoder
+	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
 
+	//helpful variable to contain pointer to tasks
+	const timed_task_t *pointer_to_task;
+
+	//EEPROM  - TO DO as lib
+	HAL_I2C_Mem_Read(&hi2c1, EEPROM_ADDRESS, 0, 0xFF, data_to_read, 1, 10);
+	HAL_Delay(10);
+	data_to_read[0]++;
+
+	HAL_I2C_Mem_Write(&hi2c1, EEPROM_ADDRESS, 0, 0xFF, data_to_read, 1, 10);
+	HAL_Delay(10);
+	for (int i = 0; i < 5; i++) {
+		printf("%3d\t", data_to_read[i]);
+	}
+	printf("\r\n");
+	//EEPROM  - TO DO as lib
+
+
+	calibrate_channel(5,2000);
+	calibrate_channel(6,2000);
+	calibrate_channel(7,2000);
+	calibrate_channel(8,2000);
+
+	//
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -202,20 +262,22 @@ int main(void) {
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
-		if (NRF24_write(txValues, 32)) {
 
-			memcpy(txValues, rc_channels.scaled_values, 22);
-//			printf("%4d\t%4d\t%4d\t%4d\r\n", txValues[0], txValues[1],
-//					txValues[2], txValues[3]);
-
-			HAL_GPIO_TogglePin(LED_BAT_GPIO_Port, LED_BAT_Pin);
-
-		} else {
-			printf("FAILED! \n");
+		for (pointer_to_task = timed_task; pointer_to_task->interval != 0;
+				pointer_to_task++) {
+			if (!(tick % pointer_to_task->interval)) {
+				/* Time to call the function */
+				(pointer_to_task->proc)();
+			}
 		}
-		HAL_Delay(50);
-
+		//increment tick
+		HAL_Delay(1);
+		tick++;
+		if (tick > 1000) {
+			tick = 0;
+		}
 	}
+
 	/* USER CODE END 3 */
 }
 
@@ -472,6 +534,54 @@ static void MX_SPI1_Init(void) {
 }
 
 /**
+ * @brief TIM1 Initialization Function
+ * @param None
+ * @retval None
+ */
+static void MX_TIM1_Init(void) {
+
+	/* USER CODE BEGIN TIM1_Init 0 */
+
+	/* USER CODE END TIM1_Init 0 */
+
+	TIM_Encoder_InitTypeDef sConfig = { 0 };
+	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+
+	/* USER CODE BEGIN TIM1_Init 1 */
+
+	/* USER CODE END TIM1_Init 1 */
+	htim1.Instance = TIM1;
+	htim1.Init.Prescaler = 0;
+	htim1.Init.CounterMode = TIM_COUNTERMODE_UP;
+	htim1.Init.Period = 23;
+	htim1.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+	htim1.Init.RepetitionCounter = 0;
+	htim1.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+	sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+	sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
+	sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
+	sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
+	sConfig.IC1Filter = 15;
+	sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
+	sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
+	sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
+	sConfig.IC2Filter = 15;
+	if (HAL_TIM_Encoder_Init(&htim1, &sConfig) != HAL_OK) {
+		Error_Handler();
+	}
+	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig)
+			!= HAL_OK) {
+		Error_Handler();
+	}
+	/* USER CODE BEGIN TIM1_Init 2 */
+
+	/* USER CODE END TIM1_Init 2 */
+
+}
+
+/**
  * @brief TIM6 Initialization Function
  * @param None
  * @retval None
@@ -488,7 +598,7 @@ static void MX_TIM6_Init(void) {
 
 	/* USER CODE END TIM6_Init 1 */
 	htim6.Instance = TIM6;
-	htim6.Init.Prescaler = 35;
+	htim6.Init.Prescaler = 144;
 	htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim6.Init.Period = 9999;
 	htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
@@ -647,21 +757,15 @@ static void MX_GPIO_Init(void) {
 	GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
 	HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-	/*Configure GPIO pin : PA8 */
-	GPIO_InitStruct.Pin = GPIO_PIN_8;
-	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-	GPIO_InitStruct.Pull = GPIO_NOPULL;
-	HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
-
-	/*Configure GPIO pin : ENC_A_EXT_Pin */
-	GPIO_InitStruct.Pin = ENC_A_EXT_Pin;
+	/*Configure GPIO pin : ENC_PB_Pin */
+	GPIO_InitStruct.Pin = ENC_PB_Pin;
 	GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-	GPIO_InitStruct.Pull = GPIO_PULLUP;
-	HAL_GPIO_Init(ENC_A_EXT_GPIO_Port, &GPIO_InitStruct);
+	GPIO_InitStruct.Pull = GPIO_NOPULL;
+	HAL_GPIO_Init(ENC_PB_GPIO_Port, &GPIO_InitStruct);
 
 	/* EXTI interrupt init*/
-	HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
-	HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+	HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+	HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
 }
 
@@ -681,37 +785,85 @@ int _write(int fd, char *str, int len) {
 	return len;
 }
 
-void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+void radioTransmit() {
+	if (NRF24_write(txValues, 32)) {
 
-	static uint8_t slow = 0;
-	slow++;
-	if (slow > 5) {
-		slow=0;
+		memcpy(txValues, rc_channels.scaled_values, 22);
+		HAL_GPIO_TogglePin(LED_BAT_GPIO_Port, LED_BAT_Pin);
+		rc_status.frames_sent++;
 
-//		oledDrawValueBars(rc_channels.scaled_values[0],
-//						rc_channels.scaled_values[1], rc_channels.scaled_values[2],
-//						rc_channels.scaled_values[3]);
-		oledDrawValueBars(rc_channels.low_pass_values[0],
-				rc_channels.low_pass_values[1],rc_channels.low_pass_values[2],
-				rc_channels.low_pass_values[3]);
-
-
+	} else {
+		printf("FAILED! \n");
 	}
+
+}
+
+void updateRcChannels() {
 	update_rc_channels(adc_values);
-	// Wartosci z Joysitckow
+}
+void updateScreen() {
 
-	//Aktualizuj wartoœci z ADC do strukutry
+	switch (enc_rotation) {
+	case 0:
+		oledPrintMainScreen(&rc_status);
+		break;
 
+	case 1:
+		oledDrawValueBars(rc_channels.low_pass_values[0],
+				rc_channels.low_pass_values[1], rc_channels.low_pass_values[2],
+				rc_channels.low_pass_values[3], 1);
 
-//	printf("%4d\t%4d\t%4d\t%4d\t\r\n", adc_values[2], adc_values[3], adc_values[9] ,adc_values[10]);
+		break;
+
+	case 2:
+		oledDrawValueBars(rc_channels.scaled_values[4],
+				rc_channels.scaled_values[5], rc_channels.scaled_values[6],
+				rc_channels.scaled_values[7], 5);
+		break;
+	case 3:
+		oledPrintEncValues(enc_rotation, enc_clicks);
+		break;
+	case 4:
+		oledPrintEncValues(enc_rotation, enc_clicks);
+		break;
+	default:
+		oledPrintEncValues(enc_rotation, enc_clicks);
+		break;
+		// default statements
+	}
+
+}
+
+/// HAL CALLBACK OVERRIDE
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+	static uint8_t mig = 10;
+
+	mig--;
+	if (!mig) {
+		mig = 10;
+		enc_rotation = TIM1->CNT / 4;
+	}
+
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	if (GPIO_Pin == ENC_A_EXT_Pin) {
-		HAL_GPIO_TogglePin(LED_EXT_GPIO_Port, LED_EXT_Pin);
+
+	if (GPIO_Pin == ENC_PB_Pin) {
+		HAL_GPIO_TogglePin(LED_MODE_GPIO_Port, LED_MODE_Pin);
+
+		enc_clicks++;
+		if (enc_clicks > 3) {
+
+			enc_clicks = 0;
+
+			chan_calib++;
+
+		}
+
 	}
+
 }
-//}
+
 /* USER CODE END 4 */
 
 /**

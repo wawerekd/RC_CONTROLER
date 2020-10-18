@@ -100,9 +100,9 @@ void Error_Handler(void);
 #define LED_EXT_GPIO_Port GPIOC
 #define LED_MODE_Pin GPIO_PIN_9
 #define LED_MODE_GPIO_Port GPIOC
-#define ENC_A_EXT_Pin GPIO_PIN_9
-#define ENC_A_EXT_GPIO_Port GPIOA
-#define ENC_A_EXT_EXTI_IRQn EXTI9_5_IRQn
+#define ENC_PB_Pin GPIO_PIN_10
+#define ENC_PB_GPIO_Port GPIOA
+#define ENC_PB_EXTI_IRQn EXTI15_10_IRQn
 #define OLED_PWR_Pin GPIO_PIN_8
 #define OLED_PWR_GPIO_Port GPIOB
 #define BUZZ_Pin GPIO_PIN_9

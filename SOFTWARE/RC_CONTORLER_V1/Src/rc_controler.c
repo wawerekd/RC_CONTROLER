@@ -60,12 +60,12 @@ void update_rc_channels(uint16_t* adc_values) {
 
 	if (rc_channels.rc_mode == RC_SIMPLE_JOYSTICK) {
 		rc_channels.scaled_values[0] = reverse_channel(
-				map_values_sbus(adc_values[6], 0, 3200)); // ROLL
+				map_values_sbus(adc_values[6], rc_channels.calibration_values[6].min, rc_channels.calibration_values[6].max)); // ROLL
 		rc_channels.scaled_values[1] =
-				(map_values_sbus(adc_values[5], 0, 3200)); // PITCH
+				(map_values_sbus(adc_values[5], rc_channels.calibration_values[5].min, rc_channels.calibration_values[5].max)); // PITCH
 		rc_channels.scaled_values[2] = reverse_channel(
-				map_values_sbus(adc_values[7], 0, 3200)); // THROTLE
-		rc_channels.scaled_values[3] = map_values_sbus(adc_values[8], 0, 3200); // YAW
+				map_values_sbus(adc_values[7], rc_channels.calibration_values[7].min, rc_channels.calibration_values[7].max)); // THROTLE
+		rc_channels.scaled_values[3] = map_values_sbus(adc_values[8], rc_channels.calibration_values[8].min, rc_channels.calibration_values[8].max); // YAW
 
 	} else if (rc_channels.rc_mode == RC_SIMPLE_JOYSTICK) {
 		rc_channels.scaled_values[0] = map_values_sbus(adc_values[7], 0, 3200); // ROLL
@@ -88,8 +88,8 @@ void update_rc_channels(uint16_t* adc_values) {
 //	rc_channels.scaled_values[8] = map_values_sbus(adc_values[4], 0, 3200);
 
 	for (int i = 0; i < 4; i++) {
-		rc_channels.low_pass_values[i] = rc_channels.low_pass_values[i] * 0.95
-				+ 0.05 * rc_channels.scaled_values[i];
+		rc_channels.low_pass_values[i] = rc_channels.low_pass_values[i] * 0.95f
+				+ 0.05f * rc_channels.scaled_values[i];
 	}
 
 }
@@ -115,6 +115,9 @@ void calibrate_channel(uint8_t channel_number, uint16_t timeout_ms) {
 		//find
 
 	}
+	rc_channels.calibration_values[channel_number].min = min;
+	rc_channels.calibration_values[channel_number].max = max;
+
 	printf("MIN: %d \r\n", min);
 	printf("MAX: %d \r\n", max);
 

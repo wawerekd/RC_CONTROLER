@@ -21,7 +21,7 @@ typedef struct Channel_Calib {
 
 typedef union Calib_Data {
 	Channel_Calib calibration_values_min_max[11];
-	uint16_t calib_raw_data[22];
+	uint8_t calib_raw_data[44];
 } Calib_Data;
 
 typedef struct RC_Channels {

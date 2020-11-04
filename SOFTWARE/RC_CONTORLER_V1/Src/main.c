@@ -49,6 +49,9 @@
 //Libraries for main RC_Contorler activies
 #include "rc_controler.h"
 
+#include "buttonProcess.h"
+
+#include "eeporm_store.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -61,13 +64,7 @@ typedef struct {
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-enum intervals {
-	INTERVAL_20_MSEC = 25,
-	INTERVAL_50_MSEC = 50,
-	INTERVAL_500_MSEC = 500,
-	INTERVAL_10_MSEC = 10,
-	INTERVAL_2_MSEC = 2,
-};
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -121,6 +118,9 @@ uint16_t adc_values[11];
 uint32_t updateReady = 0;
 uint32_t tick = 0;
 
+//for task scheduler purposes
+volatile uint8_t tick_ms = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -148,13 +148,25 @@ void updateScreen();
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 
-const uint16_t EEPROM_ADDRESS = 0xA0;
+//const uint16_t EEPROM_ADDRESS = 0xA0;
 uint8_t data_to_write = 50;
 uint8_t data_to_read[15];
 
-static const timed_task_t timed_task[] = { { INTERVAL_50_MSEC, radioTransmit },
-		{ INTERVAL_2_MSEC, updateRcChannels },
-		{ INTERVAL_20_MSEC, updateScreen }, { 0, NULL } };
+enum intervals {
+	INTERVAL_35_MSEC = 35,
+	INTERVAL_50_MSEC = 50,
+	INTERVAL_500_MSEC = 500,
+	INTERVAL_10_MSEC = 10,
+	INTERVAL_4_MSEC = 4,
+	INTERVAL_5_MSEC = 5,
+	INTERVAL_3_MSEC = 3,
+};
+
+static const timed_task_t timed_task[] = { { 5, radioTransmit }, {
+		INTERVAL_3_MSEC, updateRcChannels }, { 36, updateScreen }, {
+		INTERVAL_5_MSEC, process_buttons },
+
+{ 0, NULL } };
 
 /* USER CODE END 0 */
 
@@ -197,10 +209,6 @@ int main(void) {
 	/* USER CODE BEGIN 2 */
 
 	//Conected devices initializations
-	//OLED
-	// MPU6050
-//	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, RESET);
-//		HAL_Delay(1000);
 	oledInit();
 	oledPrintInitScreen();
 	// NRF24L01
@@ -224,6 +232,7 @@ int main(void) {
 
 	//RC_CHANNELS_INIT  -  TO D0
 	update_rc_mode(RC_SIMPLE_JOYSTICK);
+
 	//DMA start for ADC
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*) adc_values, 11);
 	//TIM6 start in interrupt mode
@@ -234,25 +243,16 @@ int main(void) {
 	//helpful variable to contain pointer to tasks
 	const timed_task_t *pointer_to_task;
 
-	//EEPROM  - TO DO as lib
-	HAL_I2C_Mem_Read(&hi2c1, EEPROM_ADDRESS, 0, 0xFF, data_to_read, 1, 10);
-	HAL_Delay(10);
-	data_to_read[0]++;
+	read_initial_store();
 
-	HAL_I2C_Mem_Write(&hi2c1, EEPROM_ADDRESS, 0, 0xFF, data_to_read, 1, 10);
-	HAL_Delay(10);
-	for (int i = 0; i < 5; i++) {
-		printf("%3d\t", data_to_read[i]);
-	}
-	printf("\r\n");
-	//EEPROM  - TO DO as lib
+//	calibrate_channel(5, 2000);
+//	calibrate_channel(6, 2000);
+//	calibrate_channel(7, 2000);
+//	calibrate_channel(8, 2000);
 
+//	update_eeporm_store();
 
-	calibrate_channel(5,2000);
-	calibrate_channel(6,2000);
-	calibrate_channel(7,2000);
-	calibrate_channel(8,2000);
-
+	volatile uint16_t main_tick = 0;
 	//
 	/* USER CODE END 2 */
 
@@ -263,21 +263,25 @@ int main(void) {
 
 		/* USER CODE BEGIN 3 */
 
-		for (pointer_to_task = timed_task; pointer_to_task->interval != 0;
-				pointer_to_task++) {
-			if (!(tick % pointer_to_task->interval)) {
-				/* Time to call the function */
-				(pointer_to_task->proc)();
+		if (tick_ms) {
+			tick_ms--;
+
+			main_tick++;
+
+			for (pointer_to_task = timed_task; pointer_to_task->interval != 0;
+					pointer_to_task++) {
+				if (!(main_tick % pointer_to_task->interval)) {
+					/* Time to call the function */
+					(pointer_to_task->proc)();
+				}
 			}
-		}
-		//increment tick
-		HAL_Delay(1);
-		tick++;
-		if (tick > 1000) {
-			tick = 0;
+			if (main_tick > 1000) {
+				main_tick = 1;
+//				printf(rc_status.frames_sent);
+			}
+
 		}
 	}
-
 	/* USER CODE END 3 */
 }
 
@@ -781,7 +785,7 @@ void IdleLoop() {
 }
 
 int _write(int fd, char *str, int len) {
-	HAL_UART_Transmit(&DEBUG_UART, (uint8_t *) str, len, 10);  // usart2 - debug
+	HAL_UART_Transmit(&DEBUG_UART, (uint8_t *) str, len, 10); // usart2 - debug
 	return len;
 }
 
@@ -791,6 +795,9 @@ void radioTransmit() {
 		memcpy(txValues, rc_channels.scaled_values, 22);
 		HAL_GPIO_TogglePin(LED_BAT_GPIO_Port, LED_BAT_Pin);
 		rc_status.frames_sent++;
+		if (rc_channels.scaled_values[2] > 2500) {
+			printf("LLS");
+		}
 
 	} else {
 		printf("FAILED! \n");
@@ -821,7 +828,7 @@ void updateScreen() {
 				rc_channels.scaled_values[7], 5);
 		break;
 	case 3:
-		oledPrintEncValues(enc_rotation, enc_clicks);
+		oledPrintCalibMenu(2, 2);
 		break;
 	case 4:
 		oledPrintEncValues(enc_rotation, enc_clicks);
@@ -837,6 +844,7 @@ void updateScreen() {
 /// HAL CALLBACK OVERRIDE
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	static uint8_t mig = 10;
+	tick_ms = 1;
 
 	mig--;
 	if (!mig) {
@@ -856,7 +864,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
 			enc_clicks = 0;
 
-			chan_calib++;
+//			chan_calib++;
 
 		}
 

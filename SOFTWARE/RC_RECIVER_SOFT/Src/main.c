@@ -23,14 +23,29 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+//STANDARD LIBARY
 #include <string.h>
-#include "nrf.h"
 #include <stdio.h>
+//NRF24
+#include "nrf.h"
+//SBUS
+#include "sbus.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+typedef struct {
+	uint16_t interval; /* How often to call the task */
+	void (*proc)(void); /* pointer to function returning void */
+} timed_task_t;
 
+typedef struct ReciverStatus {
+	uint16_t raw_rx_data[16]; //32 byte payload from nrf24
+	uint8_t sbus_transmition_frame[25];
+	uint8_t frame_lost;
+	uint32_t recived_frames;
+} ReciverStatus;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -63,8 +78,15 @@ char myTxData[32] = "Hello World!";
 
 char myRxData[50];
 uint16_t rxData[16];
-char myAckPayload[32] = "Ack by STMF7!";
+
+ReciverStatus reciver_status;
+
 uint16_t adcData;
+
+volatile uint8_t one_ms_tick;
+volatile uint16_t ms_elapsed;
+uint32_t frames_recived = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -77,6 +99,10 @@ static void MX_USART1_UART_Init(void);
 static void MX_TIM14_Init(void);
 /* USER CODE BEGIN PFP */
 
+void read_nrf_data();
+void write_sbus_packet();
+void led_update();
+void send_sbus_frame();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -119,18 +145,15 @@ int main(void) {
 	/* USER CODE BEGIN 2 */
 	HAL_TIM_Base_Start_IT(&htim14);
 	HAL_ADC_Start_DMA(&hadc, (uint32_t *) &adcData, 1);
-//	NRF24_begin(CSN_GPIO_Port, CSN_Pin, CE_Pin, hspi1);
-//	nrf24_DebugUART_Init(huart1);
-//
-//	NRF24_setAutoAck(true);
-//	NRF24_setChannel(0x4C);
-//	NRF24_setPayloadSize(14);
-//	NRF24_openReadingPipe(0, rxPipeAdress);
-//	NRF24_startListening();
-//	NRF24_enableDynamicPayloads();
-//	NRF24_enableAckPayload();
+
 	initNRF24andPrintStatus();
 	printf("Czesc F0 !\n");
+
+	//helpful variable to contain pointer to tasks
+	const timed_task_t *pointer_to_task;
+
+	static const timed_task_t timed_task[] = { { 250, led_update }, { 3,
+			read_nrf_data }, { 14, send_sbus_frame }, { 0, NULL } };
 
 	/* USER CODE END 2 */
 
@@ -142,35 +165,28 @@ int main(void) {
 		/* USER CODE BEGIN 3 */
 
 		//NRF24_writeAckPayload(1, &ack, 1);
-//		if (NRF24_available()) {
-//
-//			printf("Recived succesfully! \t");
-//			HAL_GPIO_TogglePin(LD_BLUE_GPIO_Port, LD_BLUE_Pin);
-//			NRF24_read(&dataRx, 1);
-//			printf("Data read :  %d \n", dataRx);
-//		} else {
-//			printf("FAILED! \n");
-//			HAL_Delay(210);
-//
-//
-		if (NRF24_available()) {
-			NRF24_read(rxData, 32);
-//			printf("Values: ");
-			for (int i = 0; i < 11; i++) {
-				printf("%4d\t", rxData[i]);
+		if (one_ms_tick) {
+			one_ms_tick = 0;
+
+			ms_elapsed++;
+			if (ms_elapsed > 1000) {
+				ms_elapsed = 1;
+
 			}
-			printf("\r\n");
-			HAL_GPIO_TogglePin(LD_BLUE_GPIO_Port, LD_BLUE_Pin);
 
-		} else {
-			printf("FAILED! \r\n");
+			for (pointer_to_task = timed_task; pointer_to_task->interval != 0;
+					pointer_to_task++) {
+				if (!(ms_elapsed % pointer_to_task->interval)) {
+					/* Time to call the function */
+					(pointer_to_task->proc)();
+				}
+
+			}
+
 		}
-		HAL_Delay(100);
-//
-//		HAL_GPIO_TogglePin(LD_GREEN_GPIO_Port, LD_GREEN_Pin);
 
-//		printf("ADC VALUE!%d\r\n",adcData);
 	}
+
 	/* USER CODE END 3 */
 }
 
@@ -347,10 +363,10 @@ static void MX_USART1_UART_Init(void) {
 
 	/* USER CODE END USART1_Init 1 */
 	huart1.Instance = USART1;
-	huart1.Init.BaudRate = 115200;
-	huart1.Init.WordLength = UART_WORDLENGTH_8B;
-	huart1.Init.StopBits = UART_STOPBITS_1;
-	huart1.Init.Parity = UART_PARITY_NONE;
+	huart1.Init.BaudRate = 1000000;
+	huart1.Init.WordLength = UART_WORDLENGTH_9B;
+	huart1.Init.StopBits = UART_STOPBITS_2;
+	huart1.Init.Parity = UART_PARITY_EVEN;
 	huart1.Init.Mode = UART_MODE_TX_RX;
 	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
@@ -420,12 +436,8 @@ static void MX_GPIO_Init(void) {
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
-	static uint8_t mig = 0;
-	mig++;
-	if (mig > 200) {
-		//HAL_GPIO_TogglePin(LD_BLUE_GPIO_Port, LD_BLUE_Pin);
-		mig = 0;
-	}
+	one_ms_tick = 1;
+
 }
 
 // printf redirection STM32
@@ -435,6 +447,47 @@ int _write(int fd, char *str, int len) {
 	return len;
 }
 
+//MAIN TASKS
+void led_update() {
+//	HAL_GPIO_TogglePin(LD_GREEN_GPIO_Port, LD_GREEN_Pin);
+//	printf("Dupka\r\n");
+}
+void send_sbus_frame() {
+
+	HAL_UART_Transmit_IT(&huart1, reciver_status.sbus_transmition_frame, 25);
+
+}
+
+void read_nrf_data() {
+
+	if (NRF24_available()) {
+		NRF24_read(reciver_status.raw_rx_data, 32);
+		reciver_status.recived_frames++;
+
+		if (!(reciver_status.raw_rx_data[2] > 2000
+				&& reciver_status.raw_rx_data[3] > 2000)) {
+			// write sbus data
+			parse_sbus_data(reciver_status.raw_rx_data,
+					reciver_status.sbus_transmition_frame);
+//          printf(reci)
+		}
+
+		else {
+
+//			printf("Dupa\r\n");
+		}
+
+//			for (int i = 0; i < 11; i++) {
+//				printf("%4d\t",reciver_status.raw_rx_data[i]);
+//			}
+//			printf("\r\n");
+
+		//to be repleaced by sbus_frame_send
+
+		HAL_GPIO_TogglePin(LD_BLUE_GPIO_Port, LD_BLUE_Pin);
+
+	}
+}
 /* USER CODE END 4 */
 
 /**

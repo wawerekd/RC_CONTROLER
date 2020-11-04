@@ -32,6 +32,7 @@ void oledPrintEncValues(uint8_t rotation_value, uint8_t push_value);
 void oledPrintMainScreen(RC_Controler_Status * rc_status);
 void oledPrintCalibScreen(uint8_t channel_number, uint16_t actual_value ,uint16_t time_to_end,
 		uint16_t min, uint16_t max);
+void oledPrintCalibMenu(uint8_t active_channel_number, uint8_t row);
 
 //Initial Screen
 

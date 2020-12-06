@@ -48,4 +48,4 @@ _to_update_
 Project is: _in_progress_
 
 ## Contact
-Created by [@wawerekd] (https://www.linkedin.com/in/wawerekd/) - feel free to contact me!
+Created by [@wawerekd](https://www.linkedin.com/in/wawerekd/) - feel free to contact me!

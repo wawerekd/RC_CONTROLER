@@ -69,15 +69,8 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 
-//Do poprzenoszenia
-//Adres nrf24 nadawczego
-//uint64_t rxPipeAdress = 0xABCDABCD72LL;
-//Ramka danych z nrf24
-char *user_mesage = "Hello RC_RECIVER! \n";
-char myTxData[32] = "Hello World!";
 
-char myRxData[50];
-uint16_t rxData[16];
+
 
 ReciverStatus reciver_status;
 
@@ -99,10 +92,14 @@ static void MX_USART1_UART_Init(void);
 static void MX_TIM14_Init(void);
 /* USER CODE BEGIN PFP */
 
+//MAIN TASKS
 void read_nrf_data();
-void write_sbus_packet();
+
 void led_update();
 void send_sbus_frame();
+
+
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -152,8 +149,10 @@ int main(void) {
 	//helpful variable to contain pointer to tasks
 	const timed_task_t *pointer_to_task;
 
-	static const timed_task_t timed_task[] = { { 250, led_update }, { 3,
-			read_nrf_data }, { 14, send_sbus_frame }, { 0, NULL } };
+	static const timed_task_t timed_task[] = {
+			{ 250, led_update },
+			{ 3,read_nrf_data },
+			{ 14, send_sbus_frame }, { 0, NULL } };
 
 	/* USER CODE END 2 */
 
@@ -164,7 +163,7 @@ int main(void) {
 
 		/* USER CODE BEGIN 3 */
 
-		//NRF24_writeAckPayload(1, &ack, 1);
+
 		if (one_ms_tick) {
 			one_ms_tick = 0;
 
@@ -176,8 +175,9 @@ int main(void) {
 
 			for (pointer_to_task = timed_task; pointer_to_task->interval != 0;
 					pointer_to_task++) {
+
 				if (!(ms_elapsed % pointer_to_task->interval)) {
-					/* Time to call the function */
+
 					(pointer_to_task->proc)();
 				}
 
@@ -449,7 +449,7 @@ int _write(int fd, char *str, int len) {
 
 //MAIN TASKS
 void led_update() {
-//	HAL_GPIO_TogglePin(LD_GREEN_GPIO_Port, LD_GREEN_Pin);
+	HAL_GPIO_TogglePin(LD_GREEN_GPIO_Port, LD_GREEN_Pin);
 //	printf("Dupka\r\n");
 }
 void send_sbus_frame() {

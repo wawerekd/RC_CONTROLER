@@ -163,7 +163,7 @@ enum intervals {
 };
 
 static const timed_task_t timed_task[] = { { 5, radioTransmit }, {
-		INTERVAL_3_MSEC, updateRcChannels }, { 36, updateScreen }, {
+		INTERVAL_3_MSEC, updateRcChannels }, { 35, updateScreen }, {
 		INTERVAL_5_MSEC, process_buttons },
 
 { 0, NULL } };
@@ -602,9 +602,9 @@ static void MX_TIM6_Init(void) {
 
 	/* USER CODE END TIM6_Init 1 */
 	htim6.Instance = TIM6;
-	htim6.Init.Prescaler = 144;
+	htim6.Init.Prescaler = 73;
 	htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
-	htim6.Init.Period = 9999;
+	htim6.Init.Period = 999;
 	htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
 	if (HAL_TIM_Base_Init(&htim6) != HAL_OK) {
 		Error_Handler();

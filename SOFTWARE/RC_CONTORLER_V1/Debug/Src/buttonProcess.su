@@ -1,0 +1,3 @@
+buttonProcess.c:15:6:clear_buttons_event	0	static
+buttonProcess.c:18:6:read_buttons_state	16	static
+buttonProcess.c:28:6:process_buttons	32	static

@@ -21,8 +21,13 @@ Based on nRF24L01 and STM32 MCU's remote contorle system  with controler module 
 * SSD1306 OLED display
 
 ## PCB Design
-_to_update_
 
+RC_Controler:
+![RcControler1](./Media/Img/RC_CON_3D_model_foto_git.PNG)
+![RcControler2](./Media/Img/RC_CON_3D_model_foto_git_2.PNG)
+RC_Reciver:
+![RcReciver1](./Media/Img/RC_CON_3D_reciver_foto_git_1.PNG)
+![RcReciver1](./Media/Img/RC_CON_3D_reciver_foto_git_2.PNG)
 ## Screenshots
 _to_update_
 

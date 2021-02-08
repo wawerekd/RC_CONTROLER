@@ -10,6 +10,7 @@
 
 #include "main.h"
 
+
 uint16_t map_values(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16_t out_max) ;
 
 #endif /* COMMON_H_ */

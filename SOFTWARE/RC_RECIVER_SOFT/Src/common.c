@@ -15,3 +15,4 @@ uint16_t map_values(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_m
 	return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 
 }
+//printf rediratection for debug

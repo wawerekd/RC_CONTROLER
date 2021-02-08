@@ -35,6 +35,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+
 //Standard libaries
 #include <stdio.h>
 
@@ -56,10 +57,12 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
 typedef struct {
 	uint16_t interval; /* How often to call the task */
 	void (*proc)(void); /* pointer to function returning void */
 } timed_task_t;
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -88,20 +91,19 @@ UART_HandleTypeDef huart2;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-//Message to show that app is running
-char *uart_message = "Application is running! \n";
-//NRF24L01 global variables
 
 //MPU6050 struct
 MPU6050 imu;
 //MPU global variables
+
+//TO DO -> into struct
 uint8_t dataReady = 0;
 float ax = 0, ay = 0, az = 0, gx = 0, gy = 0, gz = 0;
 MPU6050_Result mpu_result;
 
-char myTxData[32] = "Hello World!";
-uint16_t txValues[16];
-char AckPayload[32];
+char myTxData [32] = "Hello World!";
+uint16_t txValues [16];
+char AckPayload [32];
 
 extern RC_Channels rc_channels;
 extern RC_Controler_Status rc_status;
@@ -112,8 +114,7 @@ uint8_t enc_clicks = 0;
 uint8_t chan_calib = 5;
 
 //ADC _DMA _ VALUES
-
-uint16_t adc_values[11];
+uint16_t adc_values [11];
 
 uint32_t updateReady = 0;
 uint32_t tick = 0;
@@ -150,7 +151,7 @@ void updateScreen();
 
 //const uint16_t EEPROM_ADDRESS = 0xA0;
 uint8_t data_to_write = 50;
-uint8_t data_to_read[15];
+uint8_t data_to_read [15];
 
 enum intervals {
 	INTERVAL_35_MSEC = 35,
@@ -162,11 +163,13 @@ enum intervals {
 	INTERVAL_3_MSEC = 3,
 };
 
-static const timed_task_t timed_task[] = { { 5, radioTransmit }, {
-		INTERVAL_3_MSEC, updateRcChannels }, { 35, updateScreen }, {
-		INTERVAL_5_MSEC, process_buttons },
-
-{ 0, NULL } };
+static const timed_task_t timed_task [] = {
+		{ 5, radioTransmit },
+		{ INTERVAL_3_MSEC, updateRcChannels },
+		{ 35, updateScreen },
+		{ INTERVAL_5_MSEC, process_buttons },
+		//... here more task can be added
+		{ 0, NULL } };
 
 /* USER CODE END 0 */
 
@@ -209,6 +212,7 @@ int main(void) {
 	/* USER CODE BEGIN 2 */
 
 	//Conected devices initializations
+	//TO_DO - wrap all init into one init function
 	oledInit();
 	oledPrintInitScreen();
 	// NRF24L01
@@ -216,8 +220,8 @@ int main(void) {
 
 	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, SET); //wlacz zasilanie do MPU
 	HAL_Delay(10);
-	mpu_result = MPU6050_Init(&hi2c2, &imu, MPU6050_Device_0,
-			MPU6050_Accelerometer_2G, MPU6050_Gyroscope_250s);
+	mpu_result = MPU6050_Init(&hi2c2, &imu, MPU6050_Device_0, MPU6050_Accelerometer_2G,
+			MPU6050_Gyroscope_250s);
 	HAL_Delay(10);
 	rc_status.mpu_init_succes = mpu_result;
 
@@ -230,9 +234,11 @@ int main(void) {
 		printf("MPU6050 initialization FAIL!\n");
 	}
 
-	//RC_CHANNELS_INIT  -  TO D0
+	//RC_CHANNELS_INIT  -  TO_D0
 	update_rc_mode(RC_SIMPLE_JOYSTICK);
 
+
+	//TO_DO - wrap all specific functions into hardware specific inits
 	//DMA start for ADC
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*) adc_values, 11);
 	//TIM6 start in interrupt mode
@@ -268,8 +274,7 @@ int main(void) {
 
 			main_tick++;
 
-			for (pointer_to_task = timed_task; pointer_to_task->interval != 0;
-					pointer_to_task++) {
+			for (pointer_to_task = timed_task; pointer_to_task->interval != 0; pointer_to_task++) {
 				if (!(main_tick % pointer_to_task->interval)) {
 					/* Time to call the function */
 					(pointer_to_task->proc)();
@@ -308,8 +313,8 @@ void SystemClock_Config(void) {
 	}
 	/** Initializes the CPU, AHB and APB busses clocks
 	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
-			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1
+			| RCC_CLOCKTYPE_PCLK2;
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
@@ -575,8 +580,7 @@ static void MX_TIM1_Init(void) {
 	}
 	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
 	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig)
-			!= HAL_OK) {
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK) {
 		Error_Handler();
 	}
 	/* USER CODE BEGIN TIM1_Init 2 */
@@ -611,8 +615,7 @@ static void MX_TIM6_Init(void) {
 	}
 	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
 	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig)
-			!= HAL_OK) {
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK) {
 		Error_Handler();
 	}
 	/* USER CODE BEGIN TIM6_Init 2 */
@@ -690,7 +693,7 @@ static void MX_DMA_Init(void) {
 
 	/* DMA controller clock enable */
 	__HAL_RCC_DMA1_CLK_ENABLE()
-	;
+				;
 
 	/* DMA interrupt init */
 	/* DMA1_Channel1_IRQn interrupt configuration */
@@ -709,24 +712,22 @@ static void MX_GPIO_Init(void) {
 
 	/* GPIO Ports Clock Enable */
 	__HAL_RCC_GPIOD_CLK_ENABLE()
-	;
+				;
 	__HAL_RCC_GPIOC_CLK_ENABLE()
-	;
+				;
 	__HAL_RCC_GPIOA_CLK_ENABLE()
-	;
+				;
 	__HAL_RCC_GPIOB_CLK_ENABLE()
-	;
+				;
 
 	/*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(GPIOA, CSN_Pin | CE_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOB, MPU_PWR_Pin | RC_PWR_Pin | OLED_PWR_Pin | BUZZ_Pin,
-			GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOB, MPU_PWR_Pin | RC_PWR_Pin | OLED_PWR_Pin | BUZZ_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOC, LED_BAT_Pin | LED_EXT_Pin | LED_MODE_Pin,
-			GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOC, LED_BAT_Pin | LED_EXT_Pin | LED_MODE_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pins : CSN_Pin CE_Pin */
 	GPIO_InitStruct.Pin = CSN_Pin | CE_Pin;
@@ -795,7 +796,7 @@ void radioTransmit() {
 		memcpy(txValues, rc_channels.scaled_values, 22);
 		HAL_GPIO_TogglePin(LED_BAT_GPIO_Port, LED_BAT_Pin);
 		rc_status.frames_sent++;
-		if (rc_channels.scaled_values[2] > 2500) {
+		if (rc_channels.scaled_values [2] > 2500) {
 			printf("LLS");
 		}
 
@@ -816,16 +817,14 @@ void updateScreen() {
 		break;
 
 	case 1:
-		oledDrawValueBars(rc_channels.low_pass_values[0],
-				rc_channels.low_pass_values[1], rc_channels.low_pass_values[2],
-				rc_channels.low_pass_values[3], 1);
+		oledDrawValueBars(rc_channels.low_pass_values [0], rc_channels.low_pass_values [1],
+				rc_channels.low_pass_values [2], rc_channels.low_pass_values [3], 1);
 
 		break;
 
 	case 2:
-		oledDrawValueBars(rc_channels.scaled_values[4],
-				rc_channels.scaled_values[5], rc_channels.scaled_values[6],
-				rc_channels.scaled_values[7], 5);
+		oledDrawValueBars(rc_channels.scaled_values [4], rc_channels.scaled_values [5],
+				rc_channels.scaled_values [6], rc_channels.scaled_values [7], 5);
 		break;
 	case 3:
 		oledPrintCalibMenu(2, 2);

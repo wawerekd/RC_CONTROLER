@@ -1,6 +1,6 @@
 rc_controler.c:10:10:set_min	0	static
 rc_controler.c:20:10:set_max	0	static
-rc_controler.c:31:17:map_values	8	static
+rc_controler.c:31:11:map_values	8	static
 rc_controler.c:37:10:map_values_sbus	0	static
 rc_controler.c:48:10:reverse_channel	0	static
 rc_controler.c:52:6:update_rc_mode	0	static

@@ -40,9 +40,12 @@ typedef struct {
 	void (*proc)(void); /* pointer to function returning void */
 } timed_task_t;
 
+
 typedef struct ReciverStatus {
 	uint16_t raw_rx_data[16]; //32 byte payload from nrf24
 	uint8_t sbus_transmition_frame[25];
+	uint8_t signal_lost;
+
 	uint8_t frame_lost;
 	uint32_t recived_frames;
 } ReciverStatus;
@@ -363,7 +366,7 @@ static void MX_USART1_UART_Init(void) {
 
 	/* USER CODE END USART1_Init 1 */
 	huart1.Instance = USART1;
-	huart1.Init.BaudRate = 1000000;
+	huart1.Init.BaudRate = 100000;
 	huart1.Init.WordLength = UART_WORDLENGTH_9B;
 	huart1.Init.StopBits = UART_STOPBITS_2;
 	huart1.Init.Parity = UART_PARITY_EVEN;
@@ -371,10 +374,14 @@ static void MX_USART1_UART_Init(void) {
 	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
 	huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-	huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+	huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_TXINVERT_INIT;
+
+	huart1.AdvancedInit.TxPinLevelInvert = UART_ADVFEATURE_TXINV_ENABLE;
+
 	if (HAL_UART_Init(&huart1) != HAL_OK) {
 		Error_Handler();
 	}
+
 	/* USER CODE BEGIN USART1_Init 2 */
 
 	/* USER CODE END USART1_Init 2 */
@@ -474,15 +481,10 @@ void read_nrf_data() {
 
 		else {
 
-//			printf("Dupa\r\n");
+//			TO DO
 		}
 
-//			for (int i = 0; i < 11; i++) {
-//				printf("%4d\t",reciver_status.raw_rx_data[i]);
-//			}
-//			printf("\r\n");
 
-		//to be repleaced by sbus_frame_send
 
 		HAL_GPIO_TogglePin(LD_BLUE_GPIO_Port, LD_BLUE_Pin);
 

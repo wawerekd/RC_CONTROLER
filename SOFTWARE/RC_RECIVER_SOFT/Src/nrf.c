@@ -68,12 +68,12 @@ void initNRF24andPrintStatus(void) {
 	NRF24_setChannel(52);
 	NRF24_setPayloadSize(32);
 
-//	NRF24_stopListening();
+
 	NRF24_openReadingPipe(1,rxPipeAdress);
 	NRF24_startListening();
 
 	HAL_Delay(100);
-	printRadioSettings();
+//	printRadioSettings();
 
 }
 

@@ -30,22 +30,33 @@
 #include "nrf.h"
 //SBUS
 #include "sbus.h"
+//RC_RECIVER FUNCTIONALITY
+#include "rc_reciver.h"
 
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+
+//TO DO
+/*
+ * [] move some functions to common
+ * [] add binding via uart
+ * [] add multiple uart config depending on mode
+ * [] update led blinks to be less irritating/ more meaningful
+ *
+ * [] add CRC check for controler
+ * [] add auto ack
+ *
+
+ * */
+
+//TO DO - to move to common
 typedef struct {
 	uint16_t interval; /* How often to call the task */
 	void (*proc)(void); /* pointer to function returning void */
 } timed_task_t;
 
-typedef struct ReciverStatus {
-	uint16_t raw_rx_data[16]; //32 byte payload from nrf24
-	uint8_t sbus_transmition_frame[25];
-	uint8_t frame_lost;
-	uint32_t recived_frames;
-} ReciverStatus;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
@@ -60,25 +71,20 @@ typedef struct ReciverStatus {
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
 DMA_HandleTypeDef hdma_adc;
-
 SPI_HandleTypeDef hspi1;
-
 TIM_HandleTypeDef htim14;
-
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 
-
-
-
+//Main struct for containig rc_reciver status
 ReciverStatus reciver_status;
 
 uint16_t adcData;
 
 volatile uint8_t one_ms_tick;
 volatile uint16_t ms_elapsed;
-uint32_t frames_recived = 0;
+//uint32_t frames_recived = 0;
 
 /* USER CODE END PV */
 
@@ -94,11 +100,8 @@ static void MX_TIM14_Init(void);
 
 //MAIN TASKS
 void read_nrf_data();
-
 void led_update();
 void send_sbus_frame();
-
-
 
 /* USER CODE END PFP */
 
@@ -140,43 +143,56 @@ int main(void) {
 	MX_USART1_UART_Init();
 	MX_TIM14_Init();
 	/* USER CODE BEGIN 2 */
+	//HAL SPECIFIC START UP ROUTINES
 	HAL_TIM_Base_Start_IT(&htim14);
 	HAL_ADC_Start_DMA(&hadc, (uint32_t *) &adcData, 1);
-
-	initNRF24andPrintStatus();
-	printf("Czesc F0 !\n");
 
 	//helpful variable to contain pointer to tasks
 	const timed_task_t *pointer_to_task;
 
-	static const timed_task_t timed_task[] = {
+	static const timed_task_t timed_task[] =
+	{
 			{ 250, led_update },
-			{ 3,read_nrf_data },
-			{ 14, send_sbus_frame }, { 0, NULL } };
+			{ 3, read_nrf_data },
+			{ 14, send_sbus_frame },
+			{ 0, NULL }
+	};
+
+
+   // check if button is pressed to enter bind mode
+
+  // TO DO - binding logic
+
+//
+//	initNRF24andPrintStatus();
 
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
-	while (1) {
+	while (1)
+	{
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
 
-
-		if (one_ms_tick) {
+		if (one_ms_tick)
+		{
 			one_ms_tick = 0;
 
 			ms_elapsed++;
-			if (ms_elapsed > 1000) {
+			if (ms_elapsed > 1000)
+			{
 				ms_elapsed = 1;
 
 			}
 
 			for (pointer_to_task = timed_task; pointer_to_task->interval != 0;
-					pointer_to_task++) {
+					pointer_to_task++)
+			{
 
-				if (!(ms_elapsed % pointer_to_task->interval)) {
+				if (!(ms_elapsed % pointer_to_task->interval))
+				{
 
 					(pointer_to_task->proc)();
 				}
@@ -195,9 +211,12 @@ int main(void) {
  * @retval None
  */
 void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
-	RCC_PeriphCLKInitTypeDef PeriphClkInit = { 0 };
+	RCC_OscInitTypeDef RCC_OscInitStruct =
+	{ 0 };
+	RCC_ClkInitTypeDef RCC_ClkInitStruct =
+	{ 0 };
+	RCC_PeriphCLKInitTypeDef PeriphClkInit =
+	{ 0 };
 
 	/** Initializes the CPU, AHB and APB busses clocks
 	 */
@@ -211,7 +230,8 @@ void SystemClock_Config(void) {
 	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
 	RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL6;
 	RCC_OscInitStruct.PLL.PREDIV = RCC_PREDIV_DIV1;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Initializes the CPU, AHB and APB busses clocks
@@ -222,12 +242,14 @@ void SystemClock_Config(void) {
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK) {
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_1) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_USART1;
 	PeriphClkInit.Usart1ClockSelection = RCC_USART1CLKSOURCE_PCLK1;
-	if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
+	if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+	{
 		Error_Handler();
 	}
 }
@@ -243,7 +265,8 @@ static void MX_ADC_Init(void) {
 
 	/* USER CODE END ADC_Init 0 */
 
-	ADC_ChannelConfTypeDef sConfig = { 0 };
+	ADC_ChannelConfTypeDef sConfig =
+	{ 0 };
 
 	/* USER CODE BEGIN ADC_Init 1 */
 
@@ -264,7 +287,8 @@ static void MX_ADC_Init(void) {
 	hadc.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
 	hadc.Init.DMAContinuousRequests = DISABLE;
 	hadc.Init.Overrun = ADC_OVR_DATA_PRESERVED;
-	if (HAL_ADC_Init(&hadc) != HAL_OK) {
+	if (HAL_ADC_Init(&hadc) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure for the selected ADC regular channel to be converted.
@@ -272,7 +296,8 @@ static void MX_ADC_Init(void) {
 	sConfig.Channel = ADC_CHANNEL_0;
 	sConfig.Rank = ADC_RANK_CHANNEL_NUMBER;
 	sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
-	if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN ADC_Init 2 */
@@ -310,7 +335,8 @@ static void MX_SPI1_Init(void) {
 	hspi1.Init.CRCPolynomial = 7;
 	hspi1.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
 	hspi1.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-	if (HAL_SPI_Init(&hspi1) != HAL_OK) {
+	if (HAL_SPI_Init(&hspi1) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN SPI1_Init 2 */
@@ -339,7 +365,8 @@ static void MX_TIM14_Init(void) {
 	htim14.Init.Period = 999;
 	htim14.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
 	htim14.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	if (HAL_TIM_Base_Init(&htim14) != HAL_OK) {
+	if (HAL_TIM_Base_Init(&htim14) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN TIM14_Init 2 */
@@ -363,7 +390,7 @@ static void MX_USART1_UART_Init(void) {
 
 	/* USER CODE END USART1_Init 1 */
 	huart1.Instance = USART1;
-	huart1.Init.BaudRate = 1000000;
+	huart1.Init.BaudRate = 100000;
 	huart1.Init.WordLength = UART_WORDLENGTH_9B;
 	huart1.Init.StopBits = UART_STOPBITS_2;
 	huart1.Init.Parity = UART_PARITY_EVEN;
@@ -371,10 +398,15 @@ static void MX_USART1_UART_Init(void) {
 	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
 	huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-	huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-	if (HAL_UART_Init(&huart1) != HAL_OK) {
+	huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_TXINVERT_INIT;
+
+	huart1.AdvancedInit.TxPinLevelInvert = UART_ADVFEATURE_TXINV_ENABLE;
+
+	if (HAL_UART_Init(&huart1) != HAL_OK)
+	{
 		Error_Handler();
 	}
+
 	/* USER CODE BEGIN USART1_Init 2 */
 
 	/* USER CODE END USART1_Init 2 */
@@ -388,7 +420,7 @@ static void MX_DMA_Init(void) {
 
 	/* DMA controller clock enable */
 	__HAL_RCC_DMA1_CLK_ENABLE()
-	;
+				;
 
 	/* DMA interrupt init */
 	/* DMA1_Channel1_IRQn interrupt configuration */
@@ -403,15 +435,16 @@ static void MX_DMA_Init(void) {
  * @retval None
  */
 static void MX_GPIO_Init(void) {
-	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+	GPIO_InitTypeDef GPIO_InitStruct =
+	{ 0 };
 
 	/* GPIO Ports Clock Enable */
 	__HAL_RCC_GPIOF_CLK_ENABLE()
-	;
+				;
 	__HAL_RCC_GPIOA_CLK_ENABLE()
-	;
+				;
 	__HAL_RCC_GPIOB_CLK_ENABLE()
-	;
+				;
 
 	/*Configure GPIO pin Output Level */
 	HAL_GPIO_WritePin(GPIOA, LD_GREEN_Pin | LD_BLUE_Pin | CE_Pin | CSN_Pin,
@@ -439,8 +472,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	one_ms_tick = 1;
 
 }
-
-// printf redirection STM32
+//printf redirection
 int _write(int fd, char *str, int len) {
 
 	HAL_UART_Transmit(&huart1, (uint8_t *) str, len, 10);  // usart2 - debug
@@ -450,7 +482,7 @@ int _write(int fd, char *str, int len) {
 //MAIN TASKS
 void led_update() {
 	HAL_GPIO_TogglePin(LD_GREEN_GPIO_Port, LD_GREEN_Pin);
-//	printf("Dupka\r\n");
+
 }
 void send_sbus_frame() {
 
@@ -460,29 +492,23 @@ void send_sbus_frame() {
 
 void read_nrf_data() {
 
-	if (NRF24_available()) {
+	if (NRF24_available())
+	{
 		NRF24_read(reciver_status.raw_rx_data, 32);
-		reciver_status.recived_frames++;
+		reciver_status.frames_recived++;
 
-		if (!(reciver_status.raw_rx_data[2] > 2000
-				&& reciver_status.raw_rx_data[3] > 2000)) {
+		if (!(reciver_status.raw_rx_data[2] > 2000 && reciver_status.raw_rx_data[3] > 2000))
+		{
 			// write sbus data
 			parse_sbus_data(reciver_status.raw_rx_data,
 					reciver_status.sbus_transmition_frame);
-//          printf(reci)
 		}
 
-		else {
+		else
+		{
 
-//			printf("Dupa\r\n");
+//			TO DO
 		}
-
-//			for (int i = 0; i < 11; i++) {
-//				printf("%4d\t",reciver_status.raw_rx_data[i]);
-//			}
-//			printf("\r\n");
-
-		//to be repleaced by sbus_frame_send
 
 		HAL_GPIO_TogglePin(LD_BLUE_GPIO_Port, LD_BLUE_Pin);
 

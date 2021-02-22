@@ -35,7 +35,7 @@ enum BUTTONS {
 	ENCODER = 0, JOY1, JOY2,
 };
 
-void clear_buttons_event();
+void clear_buttons_event(uint8_t button_number);
 void process_buttons();
 void read_buttons_state();
 

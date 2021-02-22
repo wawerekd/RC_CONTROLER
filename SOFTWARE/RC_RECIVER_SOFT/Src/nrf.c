@@ -20,9 +20,13 @@
 //List of header files
 #include "nrf.h"
 #include "main.h"
+#include "rc_reciver.h"
 
 extern SPI_HandleTypeDef hspi1;
 extern UART_HandleTypeDef DEBUG_UART;
+
+//extern uint64_t rxPipeAdress;
+//extern uint64_t txPipeAdress;
 
 //*** Variables declaration ***//
 #define MAX(x, y) (((x) > (y)) ? (x) : (y))
@@ -30,9 +34,6 @@ extern UART_HandleTypeDef DEBUG_UART;
 #define _BOOL(x) (((x)>0) ? 1:0)
 
 //Pipe address
-//RECIVER -> RX
-uint64_t rxPipeAdress = 0xABCDABCD72LL;
-uint64_t txPipeAdress = 0x544d52687CLL;
 
 //*** Library variables ***//
 static uint64_t pipe0_reading_address;
@@ -67,12 +68,12 @@ void initNRF24andPrintStatus(void) {
 	NRF24_setAutoAck(false);
 	NRF24_setChannel(52);
 	NRF24_setPayloadSize(32);
-
-
-	NRF24_openReadingPipe(1,rxPipeAdress);
+	NRF24_openReadingPipe(1, rx_pipe_adress.var);
+	NRF24_setCRCLength(RF24_CRC_8);
 	NRF24_startListening();
 
 	HAL_Delay(100);
+
 //	printRadioSettings();
 
 }
@@ -314,7 +315,8 @@ bool NRF24_write(const void* buf, uint8_t len) {
 	uint8_t status;
 	uint32_t sent_at = HAL_GetTick();
 	const uint32_t timeout = 10; //ms to wait for timeout
-	do {
+	do
+	{
 		NRF24_read_registerN(REG_OBSERVE_TX, &observe_tx, 1);
 		//Get status register
 		status = NRF24_get_status();
@@ -327,7 +329,8 @@ bool NRF24_write(const void* buf, uint8_t len) {
 	bool tx_ok, tx_fail;
 	NRF24_whatHappened(&tx_ok, &tx_fail, &ack_payload_available);
 	retStatus = tx_ok;
-	if (ack_payload_available) {
+	if (ack_payload_available)
+	{
 		ack_payload_length = NRF24_getDynamicPayloadSize();
 	}
 
@@ -361,12 +364,15 @@ void NRF24_openReadingPipe(uint8_t number, uint64_t address) {
 	if (number == 0)
 		pipe0_reading_address = address;
 
-	if (number <= 6) {
-		if (number < 2) {
+	if (number <= 6)
+	{
+		if (number < 2)
+		{
 			//Address width is 5 bytes
 			NRF24_write_registerN(NRF24_ADDR_REGS[number],
 					(uint8_t *) (&address), 5);
-		} else {
+		} else
+		{
 			NRF24_write_registerN(NRF24_ADDR_REGS[number],
 					(uint8_t *) (&address), 1);
 		}
@@ -407,7 +413,8 @@ void NRF24_enableAckPayload(void) {
 	//Need to enable dynamic payload and Ack payload together
 	NRF24_write_register(REG_FEATURE, NRF24_read_register(
 	REG_FEATURE) | _BV(BIT_EN_ACK_PAY) | _BV(BIT_EN_DPL));
-	if (!NRF24_read_register(REG_FEATURE)) {
+	if (!NRF24_read_register(REG_FEATURE))
+	{
 		NRF24_ACTIVATE_cmd();
 		NRF24_write_register(REG_FEATURE, NRF24_read_register(
 		REG_FEATURE) | _BV(BIT_EN_ACK_PAY) | _BV(BIT_EN_DPL));
@@ -421,7 +428,8 @@ void NRF24_enableDynamicPayloads(void) {
 	//Enable dynamic payload through FEATURE register
 	NRF24_write_register(REG_FEATURE,
 			NRF24_read_register(REG_FEATURE) | _BV(BIT_EN_DPL));
-	if (!NRF24_read_register(REG_FEATURE)) {
+	if (!NRF24_read_register(REG_FEATURE))
+	{
 		NRF24_ACTIVATE_cmd();
 		NRF24_write_register(REG_FEATURE,
 				NRF24_read_register(REG_FEATURE) | _BV(BIT_EN_DPL));
@@ -453,11 +461,14 @@ void NRF24_setAutoAck(bool enable) {
 }
 //29. Set Auto Ack for certain pipe
 void NRF24_setAutoAckPipe(uint8_t pipe, bool enable) {
-	if (pipe <= 6) {
+	if (pipe <= 6)
+	{
 		uint8_t en_aa = NRF24_read_register( REG_EN_AA);
-		if (enable) {
+		if (enable)
+		{
 			en_aa |= _BV(pipe);
-		} else {
+		} else
+		{
 			en_aa &= ~_BV(pipe);
 		}
 		NRF24_write_register( REG_EN_AA, en_aa);
@@ -469,15 +480,20 @@ void NRF24_setPALevel(rf24_pa_dbm_e level) {
 	setup &= ~(_BV(RF_PWR_LOW) | _BV(RF_PWR_HIGH));
 
 	// switch uses RAM (evil!)
-	if (level == RF24_PA_0dB) {
+	if (level == RF24_PA_0dB)
+	{
 		setup |= (_BV(RF_PWR_LOW) | _BV(RF_PWR_HIGH));
-	} else if (level == RF24_PA_m6dB) {
+	} else if (level == RF24_PA_m6dB)
+	{
 		setup |= _BV(RF_PWR_HIGH);
-	} else if (level == RF24_PA_m12dB) {
+	} else if (level == RF24_PA_m12dB)
+	{
 		setup |= _BV(RF_PWR_LOW);
-	} else if (level == RF24_PA_m18dB) {
+	} else if (level == RF24_PA_m18dB)
+	{
 		// nothing
-	} else if (level == RF24_PA_ERROR) {
+	} else if (level == RF24_PA_ERROR)
+	{
 		// On error, go to maximum PA
 		setup |= (_BV(RF_PWR_LOW) | _BV(RF_PWR_HIGH));
 	}
@@ -491,13 +507,17 @@ rf24_pa_dbm_e NRF24_getPALevel(void) {
 			& (_BV(RF_PWR_LOW) | _BV(RF_PWR_HIGH));
 
 	// switch uses RAM (evil!)
-	if (power == (_BV(RF_PWR_LOW) | _BV(RF_PWR_HIGH))) {
+	if (power == (_BV(RF_PWR_LOW) | _BV(RF_PWR_HIGH)))
+	{
 		result = RF24_PA_0dB;
-	} else if (power == _BV(RF_PWR_HIGH)) {
+	} else if (power == _BV(RF_PWR_HIGH))
+	{
 		result = RF24_PA_m6dB;
-	} else if (power == _BV(RF_PWR_LOW)) {
+	} else if (power == _BV(RF_PWR_LOW))
+	{
 		result = RF24_PA_m12dB;
-	} else {
+	} else
+	{
 		result = RF24_PA_m18dB;
 	}
 
@@ -511,18 +531,22 @@ bool NRF24_setDataRate(rf24_datarate_e speed) {
 	// HIGH and LOW '00' is 1Mbs - our default
 	wide_band = false;
 	setup &= ~(_BV(RF_DR_LOW) | _BV(RF_DR_HIGH));
-	if (speed == RF24_250KBPS) {
+	if (speed == RF24_250KBPS)
+	{
 		// Must set the RF_DR_LOW to 1; RF_DR_HIGH (used to be RF_DR) is already 0
 		// Making it '10'.
 		wide_band = false;
 		setup |= _BV(RF_DR_LOW);
-	} else {
+	} else
+	{
 		// Set 2Mbs, RF_DR (RF_DR_HIGH) is set 1
 		// Making it '01'
-		if (speed == RF24_2MBPS) {
+		if (speed == RF24_2MBPS)
+		{
 			wide_band = true;
 			setup |= _BV(RF_DR_HIGH);
-		} else {
+		} else
+		{
 			// 1Mbs
 			wide_band = false;
 		}
@@ -530,9 +554,11 @@ bool NRF24_setDataRate(rf24_datarate_e speed) {
 	NRF24_write_register(REG_RF_SETUP, setup);
 
 	// Verify our result
-	if (NRF24_read_register(REG_RF_SETUP) == setup) {
+	if (NRF24_read_register(REG_RF_SETUP) == setup)
+	{
 		result = true;
-	} else {
+	} else
+	{
 		wide_band = false;
 	}
 
@@ -546,13 +572,16 @@ rf24_datarate_e NRF24_getDataRate(void) {
 
 	// switch uses RAM (evil!)
 	// Order matters in our case below
-	if (dr == _BV(RF_DR_LOW)) {
+	if (dr == _BV(RF_DR_LOW))
+	{
 		// '10' = 250KBPS
 		result = RF24_250KBPS;
-	} else if (dr == _BV(RF_DR_HIGH)) {
+	} else if (dr == _BV(RF_DR_HIGH))
+	{
 		// '01' = 2MBPS
 		result = RF24_2MBPS;
-	} else {
+	} else
+	{
 		// '00' = 1MBPS
 		result = RF24_1MBPS;
 	}
@@ -564,11 +593,14 @@ void NRF24_setCRCLength(rf24_crclength_e length) {
 			& ~( _BV(BIT_CRCO) | _BV(BIT_EN_CRC));
 
 	// switch uses RAM
-	if (length == RF24_CRC_DISABLED) {
+	if (length == RF24_CRC_DISABLED)
+	{
 		// Do nothing, we turned it off above.
-	} else if (length == RF24_CRC_8) {
+	} else if (length == RF24_CRC_8)
+	{
 		config |= _BV(BIT_EN_CRC);
-	} else {
+	} else
+	{
 		config |= _BV(BIT_EN_CRC);
 		config |= _BV(BIT_CRCO);
 	}
@@ -580,7 +612,8 @@ rf24_crclength_e NRF24_getCRCLength(void) {
 	uint8_t config = NRF24_read_register(REG_CONFIG)
 			& ( _BV(BIT_CRCO) | _BV(BIT_EN_CRC));
 
-	if (config & _BV(BIT_EN_CRC)) {
+	if (config & _BV(BIT_EN_CRC))
+	{
 		if (config & _BV(BIT_CRCO))
 			result = RF24_CRC_16;
 		else
@@ -610,7 +643,8 @@ bool NRF24_availablePipe(uint8_t* pipe_num) {
 
 	bool result = (status & _BV(BIT_RX_DR));
 
-	if (result) {
+	if (result)
+	{
 		// If the caller wants the pipe number, include that
 		if (pipe_num)
 			*pipe_num = (status >> BIT_RX_P_NO) & 0x7;
@@ -619,7 +653,8 @@ bool NRF24_availablePipe(uint8_t* pipe_num) {
 		NRF24_write_register(REG_STATUS, _BV(BIT_RX_DR));
 
 		// Handle ack payload receipt
-		if (status & _BV(BIT_TX_DS)) {
+		if (status & _BV(BIT_TX_DS))
+		{
 			NRF24_write_register(REG_STATUS, _BV(BIT_TX_DS));
 		}
 	}
@@ -709,12 +744,14 @@ void printRadioSettings(void) {
 			10);
 	//a) Get CRC settings - Config Register
 	reg8Val = NRF24_read_register(0x00);
-	if (reg8Val & (1 << 3)) {
+	if (reg8Val & (1 << 3))
+	{
 		if (reg8Val & (1 << 2))
 			sprintf(uartTxBuf, "CRC:\r\n		Enabled, 2 Bytes \r\n");
 		else
 			sprintf(uartTxBuf, "CRC:\r\n		Enabled, 1 Byte \r\n");
-	} else {
+	} else
+	{
 		sprintf(uartTxBuf, "CRC:\r\n		Disabled \r\n");
 	}
 	HAL_UART_Transmit(&nrf24_huart, (uint8_t *) uartTxBuf, strlen(uartTxBuf),

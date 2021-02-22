@@ -10,6 +10,7 @@
 #define RC_CONTROLER_H_
 
 #include "main.h"
+
 typedef enum {
 	RC_SIMPLE_JOYSTICK = 1, RC_DIV_JOYSTICK, RC_IMU
 } RC_Mode;
@@ -32,6 +33,10 @@ typedef struct RC_Channels {
 
 } RC_Channels;
 
+typedef enum {
+	NORMAL_MODE, BIND_MODE, DEBUG_MODE
+} rc_controler_mode;
+
 typedef struct RC_Controler_Status {
 	uint32_t frames_sent;
 	uint32_t frames_lost;
@@ -39,9 +44,34 @@ typedef struct RC_Controler_Status {
 	uint8_t mpu_init_succes;
 	uint8_t rc_recvier_found;
 
+	uint8_t bindnig_data_rx[8];
+	uint8_t bindnig_data_tx[8];
+
+	rc_controler_mode mode;
+
 } RC_Controler_Status;
 
-uint16_t map_values(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min, uint16_t out_max);
+
+
+extern uint8_t binding_data_tx[8];
+//RECIVER -> RX
+extern uint64_t rxPipeAdress;
+extern uint64_t txPipeAdress;
+
+
+
+//PIPES FOR NRF24
+typedef union _PipeAdress {
+	uint8_t frame[8];
+	uint64_t var;
+
+} PipeAdress;
+
+extern PipeAdress rx_pipe_adress;
+extern PipeAdress tx_pipe_adress;
+
+uint16_t map_values(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min,
+		uint16_t out_max);
 uint16_t map_values_sbus(uint16_t x, uint16_t in_min, uint16_t in_max);
 // make a separte file for RC_channels
 uint16_t reverse_channel(uint16_t value);
@@ -49,6 +79,5 @@ void update_rc_channels(uint16_t* adc_values);
 void update_rc_mode(RC_Mode mode);
 
 void calibrate_channel(uint8_t channel_number, uint16_t timeout);
-
 
 #endif /* RC_CONTROLER_H_ */

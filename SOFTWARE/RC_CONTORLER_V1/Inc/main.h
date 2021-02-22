@@ -110,6 +110,7 @@ void Error_Handler(void);
 /* USER CODE BEGIN Private defines */
 
 #define DEBUG_UART  huart3
+#define BINDING_UART huart2
 
 /* USER CODE END Private defines */
 

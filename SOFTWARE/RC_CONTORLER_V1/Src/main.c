@@ -24,12 +24,11 @@
 //	 -Potentiometers
 //	 -Switches
 // -Test NRF24L01 connection DONE
-// -Test MPU6050 CONECTION
-// -Test ENCODER processing INTERUPTS
-// -Test PUSH BUTTONS
+// -Test MPU6050 CONECTION DONE
+// -Test ENCODER processing INTERUPTS DONE
+// -Test PUSH BUTTONS DONE
 //
 /* USER CODE END Header */
-
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
@@ -43,7 +42,7 @@
 #include "oled.h"
 
 //Libraries for NRF24L01
-#include "nrf.h"       // driver for NRF24L01
+#include "nrf.h"       // driver for NRF24L01+
 
 //Libraries for MPU6050
 #include "hal_mpu6050.h"
@@ -101,9 +100,9 @@ uint8_t dataReady = 0;
 float ax = 0, ay = 0, az = 0, gx = 0, gy = 0, gz = 0;
 MPU6050_Result mpu_result;
 
-char myTxData [32] = "Hello World!";
-uint16_t txValues [16];
-char AckPayload [32];
+char myTxData[32] = "Hello World!";
+uint16_t txValues[16];
+char AckPayload[32];
 
 extern RC_Channels rc_channels;
 extern RC_Controler_Status rc_status;
@@ -114,7 +113,7 @@ uint8_t enc_clicks = 0;
 uint8_t chan_calib = 5;
 
 //ADC _DMA _ VALUES
-uint16_t adc_values [11];
+uint16_t adc_values[11];
 
 uint32_t updateReady = 0;
 uint32_t tick = 0;
@@ -144,6 +143,7 @@ void IdleLoop();   // Function  to show that app is running
 void radioTransmit();
 void updateRcChannels();
 void updateScreen();
+void process_events();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -151,25 +151,27 @@ void updateScreen();
 
 //const uint16_t EEPROM_ADDRESS = 0xA0;
 uint8_t data_to_write = 50;
-uint8_t data_to_read [15];
+uint8_t data_to_read[15];
 
-enum intervals {
-	INTERVAL_35_MSEC = 35,
-	INTERVAL_50_MSEC = 50,
-	INTERVAL_500_MSEC = 500,
-	INTERVAL_10_MSEC = 10,
-	INTERVAL_4_MSEC = 4,
-	INTERVAL_5_MSEC = 5,
-	INTERVAL_3_MSEC = 3,
-};
+//enum intervals {
+//	INTERVAL_35_MSEC = 35,
+//	INTERVAL_50_MSEC = 50,
+//	INTERVAL_500_MSEC = 500,
+//	INTERVAL_10_MSEC = 10,
+//	INTERVAL_4_MSEC = 4,
+//	INTERVAL_5_MSEC = 5,
+//	INTERVAL_3_MSEC = 3,
+//};
 
-static const timed_task_t timed_task [] = {
-		{ 5, radioTransmit },
-		{ INTERVAL_3_MSEC, updateRcChannels },
-		{ 35, updateScreen },
-		{ INTERVAL_5_MSEC, process_buttons },
-		//... here more task can be added
-		{ 0, NULL } };
+static const timed_task_t timed_task[] =
+		{
+				{ 5, radioTransmit },
+				{ 3, updateRcChannels },
+				{ 35, updateScreen },
+				{ 5, process_buttons },
+				{ 7, process_events },
+				//... here more task can be added
+				{ 0, NULL } };
 
 /* USER CODE END 0 */
 
@@ -177,7 +179,8 @@ static const timed_task_t timed_task [] = {
  * @brief  The application entry point.
  * @retval int
  */
-int main(void) {
+int main(void)
+{
 	/* USER CODE BEGIN 1 */
 
 	/* USER CODE END 1 */
@@ -226,17 +229,18 @@ int main(void) {
 	rc_status.mpu_init_succes = mpu_result;
 
 	// TO DO - check why MPU not always starts
-	if (mpu_result == MPU6050_Result_Ok) {
+	if (mpu_result == MPU6050_Result_Ok)
+	{
 		//HAL_GPIO_WritePin(LED_BAT_GPIO_Port,LED_BAT_Pin,SET);
 		printf("MPU6050  initialization SUCCESS!\n");
 
-	} else {
+	} else
+	{
 		printf("MPU6050 initialization FAIL!\n");
 	}
 
 	//RC_CHANNELS_INIT  -  TO_D0
 	update_rc_mode(RC_SIMPLE_JOYSTICK);
-
 
 	//TO_DO - wrap all specific functions into hardware specific inits
 	//DMA start for ADC
@@ -264,26 +268,39 @@ int main(void) {
 
 	/* Infinite loop */
 	/* USER CODE BEGIN WHILE */
-	while (1) {
+	while (1)
+	{
 		/* USER CODE END WHILE */
 
 		/* USER CODE BEGIN 3 */
 
-		if (tick_ms) {
+		if (tick_ms && rc_status.mode == NORMAL_MODE)
+		{
 			tick_ms--;
 
 			main_tick++;
 
-			for (pointer_to_task = timed_task; pointer_to_task->interval != 0; pointer_to_task++) {
-				if (!(main_tick % pointer_to_task->interval)) {
+			for (pointer_to_task = timed_task; pointer_to_task->interval != 0; pointer_to_task++)
+			{
+				if (!(main_tick % pointer_to_task->interval))
+				{
 					/* Time to call the function */
 					(pointer_to_task->proc)();
 				}
 			}
-			if (main_tick > 1000) {
+			if (main_tick > 1000)
+			{
 				main_tick = 1;
 //				printf(rc_status.frames_sent);
 			}
+
+		}
+
+		else if (rc_status.mode == BIND_MODE)
+		{
+			oledPrintBindScren();
+			HAL_GPIO_TogglePin(LED_BAT_GPIO_Port, LED_BAT_Pin);
+			HAL_Delay(100);
 
 		}
 	}
@@ -294,12 +311,17 @@ int main(void) {
  * @brief System Clock Configuration
  * @retval None
  */
-void SystemClock_Config(void) {
-	RCC_OscInitTypeDef RCC_OscInitStruct = { 0 };
-	RCC_ClkInitTypeDef RCC_ClkInitStruct = { 0 };
-	RCC_PeriphCLKInitTypeDef PeriphClkInit = { 0 };
+void SystemClock_Config(void)
+{
+	RCC_OscInitTypeDef RCC_OscInitStruct =
+			{ 0 };
+	RCC_ClkInitTypeDef RCC_ClkInitStruct =
+			{ 0 };
+	RCC_PeriphCLKInitTypeDef PeriphClkInit =
+			{ 0 };
 
-	/** Initializes the CPU, AHB and APB busses clocks
+	/** Initializes the RCC Oscillators according to the specified parameters
+	 * in the RCC_OscInitTypeDef structure.
 	 */
 	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
 	RCC_OscInitStruct.HSEState = RCC_HSE_ON;
@@ -308,24 +330,27 @@ void SystemClock_Config(void) {
 	RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
 	RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
 	RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
-	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK) {
+	if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
+	{
 		Error_Handler();
 	}
-	/** Initializes the CPU, AHB and APB busses clocks
+	/** Initializes the CPU, AHB and APB buses clocks
 	 */
-	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1
-			| RCC_CLOCKTYPE_PCLK2;
+	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
+			| RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
 	RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
 	RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
 	RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
 	RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV2;
 
-	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK) {
+	if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_ADC;
 	PeriphClkInit.AdcClockSelection = RCC_ADCPCLK2_DIV6;
-	if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK) {
+	if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
+	{
 		Error_Handler();
 	}
 }
@@ -335,13 +360,15 @@ void SystemClock_Config(void) {
  * @param None
  * @retval None
  */
-static void MX_ADC1_Init(void) {
+static void MX_ADC1_Init(void)
+{
 
 	/* USER CODE BEGIN ADC1_Init 0 */
 
 	/* USER CODE END ADC1_Init 0 */
 
-	ADC_ChannelConfTypeDef sConfig = { 0 };
+	ADC_ChannelConfTypeDef sConfig =
+			{ 0 };
 
 	/* USER CODE BEGIN ADC1_Init 1 */
 
@@ -355,7 +382,8 @@ static void MX_ADC1_Init(void) {
 	hadc1.Init.ExternalTrigConv = ADC_SOFTWARE_START;
 	hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
 	hadc1.Init.NbrOfConversion = 11;
-	if (HAL_ADC_Init(&hadc1) != HAL_OK) {
+	if (HAL_ADC_Init(&hadc1) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure Regular Channel
@@ -363,77 +391,88 @@ static void MX_ADC1_Init(void) {
 	sConfig.Channel = ADC_CHANNEL_0;
 	sConfig.Rank = ADC_REGULAR_RANK_1;
 	sConfig.SamplingTime = ADC_SAMPLETIME_239CYCLES_5;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure Regular Channel
 	 */
 	sConfig.Channel = ADC_CHANNEL_5;
 	sConfig.Rank = ADC_REGULAR_RANK_2;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure Regular Channel
 	 */
 	sConfig.Channel = ADC_CHANNEL_6;
 	sConfig.Rank = ADC_REGULAR_RANK_3;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure Regular Channel
 	 */
 	sConfig.Channel = ADC_CHANNEL_7;
 	sConfig.Rank = ADC_REGULAR_RANK_4;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure Regular Channel
 	 */
 	sConfig.Channel = ADC_CHANNEL_8;
 	sConfig.Rank = ADC_REGULAR_RANK_5;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure Regular Channel
 	 */
 	sConfig.Channel = ADC_CHANNEL_10;
 	sConfig.Rank = ADC_REGULAR_RANK_6;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure Regular Channel
 	 */
 	sConfig.Channel = ADC_CHANNEL_11;
 	sConfig.Rank = ADC_REGULAR_RANK_7;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure Regular Channel
 	 */
 	sConfig.Channel = ADC_CHANNEL_12;
 	sConfig.Rank = ADC_REGULAR_RANK_8;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure Regular Channel
 	 */
 	sConfig.Channel = ADC_CHANNEL_13;
 	sConfig.Rank = ADC_REGULAR_RANK_9;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure Regular Channel
 	 */
 	sConfig.Channel = ADC_CHANNEL_14;
 	sConfig.Rank = ADC_REGULAR_RANK_10;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/** Configure Regular Channel
 	 */
 	sConfig.Channel = ADC_CHANNEL_15;
 	sConfig.Rank = ADC_REGULAR_RANK_11;
-	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK) {
+	if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN ADC1_Init 2 */
@@ -447,7 +486,8 @@ static void MX_ADC1_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_I2C1_Init(void) {
+static void MX_I2C1_Init(void)
+{
 
 	/* USER CODE BEGIN I2C1_Init 0 */
 
@@ -465,7 +505,8 @@ static void MX_I2C1_Init(void) {
 	hi2c1.Init.OwnAddress2 = 0;
 	hi2c1.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
 	hi2c1.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-	if (HAL_I2C_Init(&hi2c1) != HAL_OK) {
+	if (HAL_I2C_Init(&hi2c1) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN I2C1_Init 2 */
@@ -479,7 +520,8 @@ static void MX_I2C1_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_I2C2_Init(void) {
+static void MX_I2C2_Init(void)
+{
 
 	/* USER CODE BEGIN I2C2_Init 0 */
 
@@ -497,7 +539,8 @@ static void MX_I2C2_Init(void) {
 	hi2c2.Init.OwnAddress2 = 0;
 	hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
 	hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-	if (HAL_I2C_Init(&hi2c2) != HAL_OK) {
+	if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN I2C2_Init 2 */
@@ -511,7 +554,8 @@ static void MX_I2C2_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_SPI1_Init(void) {
+static void MX_SPI1_Init(void)
+{
 
 	/* USER CODE BEGIN SPI1_Init 0 */
 
@@ -533,7 +577,8 @@ static void MX_SPI1_Init(void) {
 	hspi1.Init.TIMode = SPI_TIMODE_DISABLE;
 	hspi1.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
 	hspi1.Init.CRCPolynomial = 10;
-	if (HAL_SPI_Init(&hspi1) != HAL_OK) {
+	if (HAL_SPI_Init(&hspi1) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN SPI1_Init 2 */
@@ -547,14 +592,17 @@ static void MX_SPI1_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_TIM1_Init(void) {
+static void MX_TIM1_Init(void)
+{
 
 	/* USER CODE BEGIN TIM1_Init 0 */
 
 	/* USER CODE END TIM1_Init 0 */
 
-	TIM_Encoder_InitTypeDef sConfig = { 0 };
-	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+	TIM_Encoder_InitTypeDef sConfig =
+			{ 0 };
+	TIM_MasterConfigTypeDef sMasterConfig =
+			{ 0 };
 
 	/* USER CODE BEGIN TIM1_Init 1 */
 
@@ -575,12 +623,14 @@ static void MX_TIM1_Init(void) {
 	sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
 	sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
 	sConfig.IC2Filter = 15;
-	if (HAL_TIM_Encoder_Init(&htim1, &sConfig) != HAL_OK) {
+	if (HAL_TIM_Encoder_Init(&htim1, &sConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
 	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK) {
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN TIM1_Init 2 */
@@ -594,13 +644,15 @@ static void MX_TIM1_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_TIM6_Init(void) {
+static void MX_TIM6_Init(void)
+{
 
 	/* USER CODE BEGIN TIM6_Init 0 */
 
 	/* USER CODE END TIM6_Init 0 */
 
-	TIM_MasterConfigTypeDef sMasterConfig = { 0 };
+	TIM_MasterConfigTypeDef sMasterConfig =
+			{ 0 };
 
 	/* USER CODE BEGIN TIM6_Init 1 */
 
@@ -610,12 +662,14 @@ static void MX_TIM6_Init(void) {
 	htim6.Init.CounterMode = TIM_COUNTERMODE_UP;
 	htim6.Init.Period = 999;
 	htim6.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
-	if (HAL_TIM_Base_Init(&htim6) != HAL_OK) {
+	if (HAL_TIM_Base_Init(&htim6) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
 	sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
-	if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK) {
+	if (HAL_TIMEx_MasterConfigSynchronization(&htim6, &sMasterConfig) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN TIM6_Init 2 */
@@ -629,7 +683,8 @@ static void MX_TIM6_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_USART2_UART_Init(void) {
+static void MX_USART2_UART_Init(void)
+{
 
 	/* USER CODE BEGIN USART2_Init 0 */
 
@@ -639,14 +694,15 @@ static void MX_USART2_UART_Init(void) {
 
 	/* USER CODE END USART2_Init 1 */
 	huart2.Instance = USART2;
-	huart2.Init.BaudRate = 115200;
-	huart2.Init.WordLength = UART_WORDLENGTH_8B;
-	huart2.Init.StopBits = UART_STOPBITS_1;
-	huart2.Init.Parity = UART_PARITY_NONE;
+	huart2.Init.BaudRate = 100000;
+	huart2.Init.WordLength = UART_WORDLENGTH_9B;
+	huart2.Init.StopBits = UART_STOPBITS_2;
+	huart2.Init.Parity = UART_PARITY_EVEN;
 	huart2.Init.Mode = UART_MODE_TX_RX;
 	huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	huart2.Init.OverSampling = UART_OVERSAMPLING_16;
-	if (HAL_UART_Init(&huart2) != HAL_OK) {
+	if (HAL_UART_Init(&huart2) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN USART2_Init 2 */
@@ -660,7 +716,8 @@ static void MX_USART2_UART_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_USART3_UART_Init(void) {
+static void MX_USART3_UART_Init(void)
+{
 
 	/* USER CODE BEGIN USART3_Init 0 */
 
@@ -677,7 +734,8 @@ static void MX_USART3_UART_Init(void) {
 	huart3.Init.Mode = UART_MODE_TX_RX;
 	huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	huart3.Init.OverSampling = UART_OVERSAMPLING_16;
-	if (HAL_UART_Init(&huart3) != HAL_OK) {
+	if (HAL_UART_Init(&huart3) != HAL_OK)
+	{
 		Error_Handler();
 	}
 	/* USER CODE BEGIN USART3_Init 2 */
@@ -686,10 +744,11 @@ static void MX_USART3_UART_Init(void) {
 
 }
 
-/** 
+/**
  * Enable DMA controller clock
  */
-static void MX_DMA_Init(void) {
+static void MX_DMA_Init(void)
+{
 
 	/* DMA controller clock enable */
 	__HAL_RCC_DMA1_CLK_ENABLE()
@@ -707,8 +766,10 @@ static void MX_DMA_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_GPIO_Init(void) {
-	GPIO_InitTypeDef GPIO_InitStruct = { 0 };
+static void MX_GPIO_Init(void)
+{
+	GPIO_InitTypeDef GPIO_InitStruct =
+			{ 0 };
 
 	/* GPIO Ports Clock Enable */
 	__HAL_RCC_GPIOD_CLK_ENABLE()
@@ -786,21 +847,33 @@ void IdleLoop() {
 }
 
 int _write(int fd, char *str, int len) {
-	HAL_UART_Transmit(&DEBUG_UART, (uint8_t *) str, len, 10); // usart2 - debug
+	HAL_UART_Transmit(&DEBUG_UART, (uint8_t *) str, len, 10);
 	return len;
 }
 
+void process_events() {
+
+	if (buttons_state[ENCODER].long_press)
+	{
+		printf("Entering binding mode \r\n");
+		clear_buttons_event(ENCODER);
+
+		rc_status.mode = BIND_MODE;
+
+	}
+//  printf("Tadadm \r\n");
+}
+
 void radioTransmit() {
-	if (NRF24_write(txValues, 32)) {
+	if (NRF24_write(txValues, 32))
+	{
 
 		memcpy(txValues, rc_channels.scaled_values, 22);
 		HAL_GPIO_TogglePin(LED_BAT_GPIO_Port, LED_BAT_Pin);
 		rc_status.frames_sent++;
-		if (rc_channels.scaled_values [2] > 2500) {
-			printf("LLS");
-		}
 
-	} else {
+	} else
+	{
 		printf("FAILED! \n");
 	}
 
@@ -817,14 +890,14 @@ void updateScreen() {
 		break;
 
 	case 1:
-		oledDrawValueBars(rc_channels.low_pass_values [0], rc_channels.low_pass_values [1],
-				rc_channels.low_pass_values [2], rc_channels.low_pass_values [3], 1);
+		oledDrawValueBars(rc_channels.low_pass_values[0], rc_channels.low_pass_values[1],
+				rc_channels.low_pass_values[2], rc_channels.low_pass_values[3], 1);
 
 		break;
 
 	case 2:
-		oledDrawValueBars(rc_channels.scaled_values [4], rc_channels.scaled_values [5],
-				rc_channels.scaled_values [6], rc_channels.scaled_values [7], 5);
+		oledDrawValueBars(rc_channels.scaled_values[4], rc_channels.scaled_values[5],
+				rc_channels.scaled_values[6], rc_channels.scaled_values[7], 5);
 		break;
 	case 3:
 		oledPrintCalibMenu(2, 2);
@@ -846,7 +919,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 	tick_ms = 1;
 
 	mig--;
-	if (!mig) {
+	if (!mig)
+	{
 		mig = 10;
 		enc_rotation = TIM1->CNT / 4;
 	}
@@ -855,11 +929,13 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 
-	if (GPIO_Pin == ENC_PB_Pin) {
+	if (GPIO_Pin == ENC_PB_Pin)
+	{
 		HAL_GPIO_TogglePin(LED_MODE_GPIO_Port, LED_MODE_Pin);
 
 		enc_clicks++;
-		if (enc_clicks > 3) {
+		if (enc_clicks > 3)
+		{
 
 			enc_clicks = 0;
 
@@ -877,7 +953,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
  * @brief  This function is executed in case of error occurrence.
  * @retval None
  */
-void Error_Handler(void) {
+void Error_Handler(void)
+{
 	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 

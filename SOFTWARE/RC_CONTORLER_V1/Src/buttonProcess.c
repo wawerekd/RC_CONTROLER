@@ -12,7 +12,12 @@
 //extern uint8_t buttons_states[NUM_OF_BUTTONS];
 const uint16_t long_press_debounce_ms = 200; //ms
 
-void clear_buttons_event() {
+void clear_buttons_event(uint8_t button_number) {
+	buttons_state[button_number].long_press =0;
+	buttons_state[button_number].medium_press =0;
+	buttons_state[button_number].short_press =0;
+
+
 }
 
 void read_buttons_state() {

@@ -17,7 +17,6 @@
  ******************************************************************************
  */
 /* USER CODE END Header */
-
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
@@ -71,8 +70,11 @@ typedef struct {
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc;
 DMA_HandleTypeDef hdma_adc;
+
 SPI_HandleTypeDef hspi1;
+
 TIM_HandleTypeDef htim14;
+
 UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
@@ -97,7 +99,7 @@ static void MX_SPI1_Init(void);
 static void MX_USART1_UART_Init(void);
 static void MX_TIM14_Init(void);
 /* USER CODE BEGIN PFP */
-
+static void USART1_Init_Binding_Mode(void);
 //MAIN TASKS
 void read_nrf_data();
 void led_update();
@@ -143,6 +145,22 @@ int main(void) {
 	MX_USART1_UART_Init();
 	MX_TIM14_Init();
 	/* USER CODE BEGIN 2 */
+
+	//CHECK IF ENTER TO BINDING MODE OR NOT DEPENDING OD BUTTON STATE
+	HAL_Delay(500);
+
+	if (!HAL_GPIO_ReadPin(BIND_BUTTON_GPIO_Port, BIND_BUTTON_Pin)) //if button pressed enter to binding mode
+	{
+		set_reciver_binding_mode();
+		confirm_binding_mode();
+
+	}
+	else
+	{
+		set_reciver_normal_mode();
+
+	}
+
 	//HAL SPECIFIC START UP ROUTINES
 	HAL_TIM_Base_Start_IT(&htim14);
 	HAL_ADC_Start_DMA(&hadc, (uint32_t *) &adcData, 1);
@@ -151,20 +169,71 @@ int main(void) {
 	const timed_task_t *pointer_to_task;
 
 	static const timed_task_t timed_task[] =
+			{
+					{ 250, led_update },
+					{ 3, read_nrf_data },
+					{ 14, send_sbus_frame },
+					{ 0, NULL }
+			};
+
+	if (reciver_status.mode == BIND_MODE)
 	{
-			{ 250, led_update },
-			{ 3, read_nrf_data },
-			{ 14, send_sbus_frame },
-			{ 0, NULL }
-	};
 
+		static uint8_t is_response = 0;
+		static uint8_t retries = 10;  //TO DO -> add define??
 
-   // check if button is pressed to enter bind mode
+		// Set proper UART parameters
+		USART1_Init_Binding_Mode();
 
-  // TO DO - binding logic
+		// Try as long as still have retries or recived response
+		while (retries && !is_response)
+		{
 
-//
-//	initNRF24andPrintStatus();
+			retries--;
+
+			// Check if we  received frame
+
+			if (HAL_UART_Receive(&huart1, reciver_status.bindnig_data_rx,
+					sizeof(reciver_status.bindnig_data_rx), 100) != HAL_ERROR)
+			{
+				// Check if it looks just as should ( security purposes) // //TO DO -> add define?? and compare funciton?
+				if (reciver_status.bindnig_data_rx[0] == 1
+						&& reciver_status.bindnig_data_rx[3] == 7)
+					is_response = 1;
+
+			}
+
+		}
+		// Check if frame was correct response with some data
+		if (is_response)
+		{
+
+			memcpy(reciver_status.bindnig_data_tx, binding_data_tx, sizeof(binding_data_tx));
+
+			HAL_UART_Transmit(&huart1, reciver_status.bindnig_data_tx,
+					sizeof(reciver_status.bindnig_data_tx), 100);
+
+		}
+		HAL_Delay(10);
+		// Get the pipe adress and other settings (TO DO other settings)
+		if (HAL_UART_Receive(&huart1, reciver_status.bindnig_data_rx,
+				sizeof(reciver_status.bindnig_data_rx), 100) != HAL_ERROR)
+		{
+			memcpy(&txPipeAdress, reciver_status.bindnig_data_rx, sizeof(txPipeAdress));
+
+		}
+
+		//After binding change mode to normal
+		set_reciver_normal_mode();
+
+	}
+
+	if (reciver_status.mode == NORMAL_MODE)
+	{
+
+		initNRF24andPrintStatus();
+
+	}
 
 	/* USER CODE END 2 */
 
@@ -210,18 +279,19 @@ int main(void) {
  * @brief System Clock Configuration
  * @retval None
  */
-void SystemClock_Config(void) {
+void SystemClock_Config(void)
+{
 	RCC_OscInitTypeDef RCC_OscInitStruct =
-	{ 0 };
+			{ 0 };
 	RCC_ClkInitTypeDef RCC_ClkInitStruct =
-	{ 0 };
+			{ 0 };
 	RCC_PeriphCLKInitTypeDef PeriphClkInit =
-	{ 0 };
+			{ 0 };
 
-	/** Initializes the CPU, AHB and APB busses clocks
+	/** Initializes the RCC Oscillators according to the specified parameters
+	 * in the RCC_OscInitTypeDef structure.
 	 */
-	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI
-			| RCC_OSCILLATORTYPE_HSI14;
+	RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI | RCC_OSCILLATORTYPE_HSI14;
 	RCC_OscInitStruct.HSIState = RCC_HSI_ON;
 	RCC_OscInitStruct.HSI14State = RCC_HSI14_ON;
 	RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
@@ -234,7 +304,7 @@ void SystemClock_Config(void) {
 	{
 		Error_Handler();
 	}
-	/** Initializes the CPU, AHB and APB busses clocks
+	/** Initializes the CPU, AHB and APB buses clocks
 	 */
 	RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK
 			| RCC_CLOCKTYPE_PCLK1;
@@ -259,14 +329,15 @@ void SystemClock_Config(void) {
  * @param None
  * @retval None
  */
-static void MX_ADC_Init(void) {
+static void MX_ADC_Init(void)
+{
 
 	/* USER CODE BEGIN ADC_Init 0 */
 
 	/* USER CODE END ADC_Init 0 */
 
 	ADC_ChannelConfTypeDef sConfig =
-	{ 0 };
+			{ 0 };
 
 	/* USER CODE BEGIN ADC_Init 1 */
 
@@ -311,7 +382,8 @@ static void MX_ADC_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_SPI1_Init(void) {
+static void MX_SPI1_Init(void)
+{
 
 	/* USER CODE BEGIN SPI1_Init 0 */
 
@@ -350,7 +422,8 @@ static void MX_SPI1_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_TIM14_Init(void) {
+static void MX_TIM14_Init(void)
+{
 
 	/* USER CODE BEGIN TIM14_Init 0 */
 
@@ -380,7 +453,8 @@ static void MX_TIM14_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_USART1_UART_Init(void) {
+static void MX_USART1_UART_Init(void)
+{
 
 	/* USER CODE BEGIN USART1_Init 0 */
 
@@ -398,25 +472,26 @@ static void MX_USART1_UART_Init(void) {
 	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
 	huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-	huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_TXINVERT_INIT;
 
+	huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_TXINVERT_INIT
+			| UART_ADVFEATURE_RXINVERT_INIT;
 	huart1.AdvancedInit.TxPinLevelInvert = UART_ADVFEATURE_TXINV_ENABLE;
-
+	huart1.AdvancedInit.RxPinLevelInvert = UART_ADVFEATURE_RXINV_ENABLE;
 	if (HAL_UART_Init(&huart1) != HAL_OK)
 	{
 		Error_Handler();
 	}
-
 	/* USER CODE BEGIN USART1_Init 2 */
 
 	/* USER CODE END USART1_Init 2 */
 
 }
 
-/** 
+/**
  * Enable DMA controller clock
  */
-static void MX_DMA_Init(void) {
+static void MX_DMA_Init(void)
+{
 
 	/* DMA controller clock enable */
 	__HAL_RCC_DMA1_CLK_ENABLE()
@@ -434,9 +509,10 @@ static void MX_DMA_Init(void) {
  * @param None
  * @retval None
  */
-static void MX_GPIO_Init(void) {
+static void MX_GPIO_Init(void)
+{
 	GPIO_InitTypeDef GPIO_InitStruct =
-	{ 0 };
+			{ 0 };
 
 	/* GPIO Ports Clock Enable */
 	__HAL_RCC_GPIOF_CLK_ENABLE()
@@ -447,8 +523,7 @@ static void MX_GPIO_Init(void) {
 				;
 
 	/*Configure GPIO pin Output Level */
-	HAL_GPIO_WritePin(GPIOA, LD_GREEN_Pin | LD_BLUE_Pin | CE_Pin | CSN_Pin,
-			GPIO_PIN_RESET);
+	HAL_GPIO_WritePin(GPIOA, LD_GREEN_Pin | LD_BLUE_Pin | CE_Pin | CSN_Pin, GPIO_PIN_RESET);
 
 	/*Configure GPIO pins : LD_GREEN_Pin LD_BLUE_Pin CE_Pin CSN_Pin */
 	GPIO_InitStruct.Pin = LD_GREEN_Pin | LD_BLUE_Pin | CE_Pin | CSN_Pin;
@@ -459,13 +534,36 @@ static void MX_GPIO_Init(void) {
 
 	/*Configure GPIO pin : BIND_BUTTON_Pin */
 	GPIO_InitStruct.Pin = BIND_BUTTON_Pin;
-	GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+	GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
 	GPIO_InitStruct.Pull = GPIO_NOPULL;
 	HAL_GPIO_Init(BIND_BUTTON_GPIO_Port, &GPIO_InitStruct);
 
 }
 
 /* USER CODE BEGIN 4 */
+
+static void USART1_Init_Binding_Mode(void) {
+
+	HAL_UART_DeInit(&huart1);
+
+	huart1.Instance = USART1;
+	huart1.Init.BaudRate = 100000;
+	huart1.Init.WordLength = UART_WORDLENGTH_9B;
+	huart1.Init.StopBits = UART_STOPBITS_2;
+	huart1.Init.Parity = UART_PARITY_EVEN;
+	huart1.Init.Mode = UART_MODE_TX_RX;
+	huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+	huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+	huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+
+	huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+
+	if (HAL_UART_Init(&huart1) != HAL_OK)
+	{
+		Error_Handler();
+	}
+
+}
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 
@@ -475,13 +573,24 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
 //printf redirection
 int _write(int fd, char *str, int len) {
 
-	HAL_UART_Transmit(&huart1, (uint8_t *) str, len, 10);  // usart2 - debug
+	HAL_UART_Transmit(&huart1, (uint8_t *) str, len, 10);
 	return len;
 }
 
 //MAIN TASKS
 void led_update() {
-	HAL_GPIO_TogglePin(LD_GREEN_GPIO_Port, LD_GREEN_Pin);
+	static uint8_t blink_count = 0;
+	blink_count++;
+	if (blink_count > 4)
+	{
+		blink_count = 0;
+		HAL_GPIO_WritePin(LD_GREEN_GPIO_Port, LD_GREEN_Pin, SET);
+	}
+	else
+		HAL_GPIO_WritePin(LD_GREEN_GPIO_Port, LD_GREEN_Pin, RESET);
+
+//	HAL_GPIO_WritePin(LD_GREEN_GPIO_Port, LD_GREEN_Pin, HAL_GPIO_ReadPin(BIND_BUTTON_GPIO_Port,BIND_BUTTON_Pin));
+//	HAL_GPIO_TogglePin(LD_GREEN_GPIO_Port, LD_GREEN_Pin);
 
 }
 void send_sbus_frame() {
@@ -497,22 +606,18 @@ void read_nrf_data() {
 		NRF24_read(reciver_status.raw_rx_data, 32);
 		reciver_status.frames_recived++;
 
-		if (!(reciver_status.raw_rx_data[2] > 2000 && reciver_status.raw_rx_data[3] > 2000))
+		if (!(reciver_status.raw_rx_data[2] > 2000 && reciver_status.raw_rx_data[3] > 2000)) //to update and add CRC
 		{
 			// write sbus data
 			parse_sbus_data(reciver_status.raw_rx_data,
 					reciver_status.sbus_transmition_frame);
 		}
 
-		else
-		{
-
-//			TO DO
-		}
-
 		HAL_GPIO_TogglePin(LD_BLUE_GPIO_Port, LD_BLUE_Pin);
 
 	}
+//	else
+//		printf("No data\r\n");
 }
 /* USER CODE END 4 */
 
@@ -520,10 +625,15 @@ void read_nrf_data() {
  * @brief  This function is executed in case of error occurrence.
  * @retval None
  */
-void Error_Handler(void) {
+void Error_Handler(void)
+{
 	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
-
+	while (true)
+	{
+		HAL_GPIO_TogglePin(LD_GREEN_GPIO_Port, LD_GREEN_Pin);
+		HAL_Delay(70);
+	}
 	/* USER CODE END Error_Handler_Debug */
 }
 
@@ -535,7 +645,7 @@ void Error_Handler(void) {
  * @param  line: assert_param error line source number
  * @retval None
  */
-void assert_failed(char *file, uint32_t line)
+void assert_failed(uint8_t *file, uint32_t line)
 {
 	/* USER CODE BEGIN 6 */
 	/* User can add his own implementation to report the file name and line number,

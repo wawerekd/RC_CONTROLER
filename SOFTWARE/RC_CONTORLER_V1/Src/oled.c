@@ -7,7 +7,8 @@
 
 #include "oled.h"
 
-const unsigned char init_screen[] = {
+const unsigned char init_screen[] =
+{
 
 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x40,
@@ -106,7 +107,7 @@ void oledInit(void) {
 
 void oledPrintInitScreen(void) {
 
-	const char *firmawre_version = "1.1";
+	const char *firmawre_version = "1.2";
 
 	char buffor_string[25];
 
@@ -284,3 +285,30 @@ void oledPrintCalibMenu(uint8_t active_channel_number, uint8_t row) {
 	SSD1306_UpdateScreen(); // update screen
 
 }
+
+void oledPrintBindScren() { //to add bind status
+
+	const char *firmawre_version = "1.2";
+
+	char buffor_string[25];
+
+	sprintf(buffor_string, "v%s %s", firmawre_version, __DATE__);
+
+	SSD1306_Clear();
+
+//	SSD1306_DrawBitmap(0, 0, init_screen, 128, 64, 1);
+	SSD1306_DrawRectangle(0, 0, 128, 64, 1);
+
+
+	SSD1306_GotoXY(10, 10); //
+	SSD1306_Puts("Entered binding mode ", &Font_7x10, 1); // print Hello
+	SSD1306_GotoXY(10, 22);
+	SSD1306_Puts("...", &Font_7x10, 1);
+	SSD1306_GotoXY(10, 34);
+	SSD1306_Puts(buffor_string, &Font_7x10, 1);
+
+
+	SSD1306_UpdateScreen();
+
+}
+

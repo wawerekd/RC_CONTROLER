@@ -20,6 +20,7 @@
 //List of header files
 #include "nrf.h"
 #include "main.h"
+#include "rc_controler.h"
 
 extern SPI_HandleTypeDef hspi1;
 extern UART_HandleTypeDef DEBUG_UART;
@@ -30,9 +31,9 @@ extern UART_HandleTypeDef DEBUG_UART;
 #define _BOOL(x) (((x)>0) ? 1:0)
 
 //Pipe address
-//CONTORLER -> TX
-uint64_t txPipeAdress = 0xABCDABCD72LL;
-uint64_t rxPipeAdress = 0x544d52687CLL;
+////CONTORLER -> TX
+//uint64_t txPipeAdress = 0xABCDABCD72LL;
+//uint64_t rxPipeAdress = 0x544d52687CLL;
 
 //*** Library variables ***//
 static uint64_t pipe0_reading_address;
@@ -69,7 +70,8 @@ void initNRF24andPrintStatus(void) {
 	NRF24_setPayloadSize(32);
 
 	NRF24_stopListening();
-	NRF24_openWritingPipe(txPipeAdress);
+	NRF24_openWritingPipe(tx_pipe_adress.var);
+	NRF24_setCRCLength(RF24_CRC_8);
 
 	HAL_Delay(100);
 	printRadioSettings();

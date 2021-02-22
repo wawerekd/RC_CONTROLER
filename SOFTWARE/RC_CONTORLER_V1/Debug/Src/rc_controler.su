@@ -1,8 +1,8 @@
-rc_controler.c:10:10:set_min	0	static
-rc_controler.c:20:10:set_max	0	static
-rc_controler.c:31:11:map_values	8	static
-rc_controler.c:37:10:map_values_sbus	0	static
-rc_controler.c:48:10:reverse_channel	0	static
-rc_controler.c:52:6:update_rc_mode	0	static
-rc_controler.c:59:6:update_rc_channels	32	static
-rc_controler.c:97:6:calibrate_channel	32	static
+rc_controler.c:25:10:set_min	0	static
+rc_controler.c:37:10:set_max	0	static
+rc_controler.c:50:10:map_values	8	static
+rc_controler.c:56:10:map_values_sbus	0	static
+rc_controler.c:67:10:reverse_channel	0	static
+rc_controler.c:71:6:update_rc_mode	0	static
+rc_controler.c:79:6:update_rc_channels	32	static
+rc_controler.c:124:6:calibrate_channel	32	static

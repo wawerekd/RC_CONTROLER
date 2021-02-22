@@ -1,7 +1,8 @@
-oled.c:99:6:oledInit	8	static
-oled.c:107:6:oledPrintInitScreen	56	static
-oled.c:139:6:oledDrawValueBars	64	static
-oled.c:186:6:oledPrintEncValues	56	static
-oled.c:204:6:oledPrintMainScreen	56	static
-oled.c:232:6:oledPrintCalibScreen	64	static
-oled.c:256:6:oledPrintCalibMenu	56	static
+oled.c:100:6:oledInit	8	static
+oled.c:108:6:oledPrintInitScreen	56	static
+oled.c:140:6:oledDrawValueBars	64	static
+oled.c:187:6:oledPrintEncValues	56	static
+oled.c:205:6:oledPrintMainScreen	56	static
+oled.c:233:6:oledPrintCalibScreen	64	static
+oled.c:257:6:oledPrintCalibMenu	56	static
+oled.c:289:6:oledPrintBindScren	56	static

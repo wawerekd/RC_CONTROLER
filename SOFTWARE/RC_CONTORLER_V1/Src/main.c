@@ -54,6 +54,8 @@
 #include "eeporm_store.h"
 /* USER CODE END Includes */
 
+#include "binding.h"
+
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
 
@@ -71,7 +73,7 @@ typedef struct {
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+//# define SIZE(x) sizeof(x)/sizeof(x[0])
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -170,6 +172,7 @@ static const timed_task_t timed_task[] =
 				{ 35, updateScreen },
 				{ 5, process_buttons },
 				{ 7, process_events },
+
 				//... here more task can be added
 				{ 0, NULL } };
 
@@ -223,10 +226,11 @@ int main(void)
 
 	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, SET); //wlacz zasilanie do MPU
 	HAL_Delay(10);
-	mpu_result = MPU6050_Init(&hi2c2, &imu, MPU6050_Device_0, MPU6050_Accelerometer_2G,
+
+	rc_status.mpu_init_succes = MPU6050_Init(&hi2c2, &imu, MPU6050_Device_0,
+			MPU6050_Accelerometer_2G,
 			MPU6050_Gyroscope_250s);
 	HAL_Delay(10);
-	rc_status.mpu_init_succes = mpu_result;
 
 	// TO DO - check why MPU not always starts
 	if (mpu_result == MPU6050_Result_Ok)
@@ -243,15 +247,13 @@ int main(void)
 	update_rc_mode(RC_SIMPLE_JOYSTICK);
 
 	//TO_DO - wrap all specific functions into hardware specific inits
+
 	//DMA start for ADC
 	HAL_ADC_Start_DMA(&hadc1, (uint32_t*) adc_values, 11);
 	//TIM6 start in interrupt mode
 	HAL_TIM_Base_Start_IT(&htim6);
 	//TIM1 start as encoder
 	HAL_TIM_Encoder_Start(&htim1, TIM_CHANNEL_ALL);
-
-	//helpful variable to contain pointer to tasks
-	const timed_task_t *pointer_to_task;
 
 	read_initial_store();
 
@@ -261,9 +263,9 @@ int main(void)
 //	calibrate_channel(8, 2000);
 
 //	update_eeporm_store();
-
+	const timed_task_t *pointer_to_task;
 	volatile uint16_t main_tick = 0;
-	//
+
 	/* USER CODE END 2 */
 
 	/* Infinite loop */
@@ -291,7 +293,7 @@ int main(void)
 			if (main_tick > 1000)
 			{
 				main_tick = 1;
-//				printf(rc_status.frames_sent);
+
 			}
 
 		}
@@ -299,8 +301,8 @@ int main(void)
 		else if (rc_status.mode == BIND_MODE)
 		{
 			oledPrintBindScren();
-			HAL_GPIO_TogglePin(LED_BAT_GPIO_Port, LED_BAT_Pin);
-			HAL_Delay(100);
+			HAL_GPIO_WritePin(LED_BAT_GPIO_Port, LED_BAT_Pin, SET);
+			bind_event_controler();
 
 		}
 	}
@@ -727,10 +729,10 @@ static void MX_USART3_UART_Init(void)
 
 	/* USER CODE END USART3_Init 1 */
 	huart3.Instance = USART3;
-	huart3.Init.BaudRate = 115200;
-	huart3.Init.WordLength = UART_WORDLENGTH_8B;
-	huart3.Init.StopBits = UART_STOPBITS_1;
-	huart3.Init.Parity = UART_PARITY_NONE;
+	huart3.Init.BaudRate = 100000;
+	huart3.Init.WordLength = UART_WORDLENGTH_9B;
+	huart3.Init.StopBits = UART_STOPBITS_2;
+	huart3.Init.Parity = UART_PARITY_EVEN;
 	huart3.Init.Mode = UART_MODE_TX_RX;
 	huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
 	huart3.Init.OverSampling = UART_OVERSAMPLING_16;
@@ -880,7 +882,9 @@ void radioTransmit() {
 }
 
 void updateRcChannels() {
+
 	update_rc_channels(adc_values);
+
 }
 void updateScreen() {
 
@@ -938,8 +942,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		{
 
 			enc_clicks = 0;
-
-//			chan_calib++;
 
 		}
 

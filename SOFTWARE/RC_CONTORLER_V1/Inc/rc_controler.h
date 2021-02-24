@@ -58,6 +58,7 @@ extern uint8_t binding_data_tx[8];
 extern uint64_t rxPipeAdress;
 extern uint64_t txPipeAdress;
 
+extern RC_Controler_Status rc_status;
 
 
 //PIPES FOR NRF24
@@ -79,5 +80,8 @@ void update_rc_channels(uint16_t* adc_values);
 void update_rc_mode(RC_Mode mode);
 
 void calibrate_channel(uint8_t channel_number, uint16_t timeout);
+
+void init_mpu6050();
+
 
 #endif /* RC_CONTROLER_H_ */

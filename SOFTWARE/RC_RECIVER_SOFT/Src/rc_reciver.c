@@ -6,8 +6,7 @@
  */
 #include "rc_reciver.h"
 
-uint8_t binding_data_tx[8] =
-		{ 100, 102, 103, 104, 55, 66, 77, 88 };
+
 
 uint64_t rxPipeAdress = 0xABCDABCD72LL;
 uint64_t txPipeAdress = 0x544d52687CLL;

@@ -34,6 +34,8 @@ void oledPrintCalibScreen(uint8_t channel_number, uint16_t actual_value ,uint16_
 		uint16_t min, uint16_t max);
 void oledPrintCalibMenu(uint8_t active_channel_number, uint8_t row);
 
+void oledPrintBindScren();
+
 //Initial Screen
 
 #endif /* OLED_H_ */

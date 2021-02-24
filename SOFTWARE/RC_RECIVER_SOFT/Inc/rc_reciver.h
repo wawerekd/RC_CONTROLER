@@ -13,11 +13,37 @@
 #define RC_RECIVER_H_
 
 #include "main.h"
+#include "nrf.h"
 
 extern uint8_t binding_data_tx[8];
 //RECIVER -> RX
 extern uint64_t rxPipeAdress;
 extern uint64_t txPipeAdress;
+
+//PIPES FOR NRF24
+typedef union _PipeAdress {
+	uint8_t frame[8];
+	uint64_t var;
+
+} PipeAdress;
+
+typedef enum {
+	CONTROLER, RECIVER
+} rc_role;
+typedef struct _RadioConfig {
+
+	PipeAdress tx_pipe;
+	PipeAdress rx_pipe;
+
+	rf24_crclength_e crc_length;
+	rf24_datarate_e datarate;
+	rf24_pa_dbm_e pa_dbm;
+
+	uint8_t channel;
+	uint8_t auto_ack;
+	rc_role role;
+
+} RadioConfig;
 
 typedef enum {
 	NORMAL_MODE, BIND_MODE, DEBUG_MODE
@@ -39,18 +65,8 @@ typedef struct ReciverStatus {
 
 extern ReciverStatus reciver_status;
 
-
-
-//PIPES FOR NRF24
-typedef  union _PipeAdress{
-	uint8_t frame[8];
-	uint64_t var;
-
-}PipeAdress;
-
 extern PipeAdress rx_pipe_adress;
 extern PipeAdress tx_pipe_adress;
-
 
 void set_reciver_binding_mode();
 void set_reciver_normal_mode();

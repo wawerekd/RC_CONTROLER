@@ -1,11 +1,15 @@
 #include "rc_controler.h"
 #include "oled.h"
 
+#include "hal_mpu6050.h"
+
 extern TIM_HandleTypeDef htim6;
+extern I2C_HandleTypeDef hi2c2;
+extern MPU6050 imu;
 
 RC_Channels rc_channels;
 RC_Controler_Status rc_status =
-{ .mode = NORMAL_MODE };
+		{ .mode = NORMAL_MODE };
 
 uint8_t binding_data_tx[8] =
 		{ 1, 102, 7, 103, 55, 66, 77, 88 };
@@ -149,5 +153,30 @@ void calibrate_channel(uint8_t channel_number, uint16_t timeout_ms) {
 
 	printf("MIN: %d \r\n", min);
 	printf("MAX: %d \r\n", max);
+
+}
+
+void init_mpu6050() {
+
+	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, SET); //wlacz zasilanie do MPU
+	HAL_Delay(10);
+
+	rc_status.mpu_init_succes = MPU6050_Init(&hi2c2, &imu, MPU6050_Device_0,
+			MPU6050_Accelerometer_2G,
+			MPU6050_Gyroscope_250s);
+	HAL_Delay(10);
+
+
+	// TO DO - check why MPU not always starts
+	if (rc_status.mpu_init_succes)
+	{
+		//HAL_GPIO_WritePin(LED_BAT_GPIO_Port,LED_BAT_Pin,SET);
+		printf("MPU6050  initialization SUCCES!\n");
+
+//
+	} else
+	{
+		printf("MPU6050 initialization FAIL!\n");
+	}
 
 }

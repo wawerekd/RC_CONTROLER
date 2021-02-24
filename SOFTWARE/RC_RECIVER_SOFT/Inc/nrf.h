@@ -78,6 +78,10 @@ REG_RX_PW_P3,
 REG_RX_PW_P4,
 REG_RX_PW_P5
 };
+
+
+
+
 //**** Functions prototypes ****//
 //Microsecond delay function
 void NRF24_DelayMicroSeconds(uint32_t uSec);

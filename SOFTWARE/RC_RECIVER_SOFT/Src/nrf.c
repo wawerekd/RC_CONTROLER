@@ -54,22 +54,51 @@ static SPI_HandleTypeDef nrf24_hspi;
 //Debugging UART handle
 static UART_HandleTypeDef nrf24_huart;
 
+static void init_NRF24_HW() {
+
+	NRF24_begin(CSN_GPIO_Port, CSN_Pin, CE_Pin, hspi1);
+	nrf24_DebugUART_Init(DEBUG_UART);
+}
+
 ///USER MODIFIACTIONS
+
+void init_NRF24_sytem_mebmer(NRF24_InitStruct * const member) {
+
+	init_NRF24_HW();
+
+	NRF24_setPayloadSize(32);
+	NRF24_setChannel(member->radio_channel);
+	NRF24_setDataRate(member->data_rate);
+	NRF24_setCRCLength(RF24_CRC_8);
+	if (member->role == RC_RECIVER)
+	{
+
+		NRF24_openReadingPipe(1, member->rx_pipe.var);
+		NRF24_startListening();
+	}
+	else
+	{
+
+		NRF24_stopListening();
+		NRF24_openWritingPipe(member->tx_pipe.var);
+	}
+
+}
+
 
 void initNRF24andPrintStatus(void) {
 
 	//RECIVER -> RX
-
+	//HARDWARE SPECYFIC TO MOVE TO ANTOHER FUNCTION
 	NRF24_begin(CSN_GPIO_Port, CSN_Pin, CE_Pin, hspi1);
-	nrf24_DebugUART_Init(DEBUG_UART);
 
 	//RECIVER -> RX
+	NRF24_setPayloadSize(32);
 
 	NRF24_setAutoAck(false);
 	NRF24_setChannel(52);
-	NRF24_setPayloadSize(32);
-	NRF24_openReadingPipe(1, rx_pipe_adress.var);
 	NRF24_setCRCLength(RF24_CRC_8);
+	NRF24_openReadingPipe(1, rx_pipe_adress.var);
 	NRF24_startListening();
 
 	HAL_Delay(100);

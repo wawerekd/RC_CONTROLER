@@ -10,6 +10,7 @@
 #define RC_CONTROLER_H_
 
 #include "main.h"
+#include "nrf.h"
 
 typedef enum {
 	RC_SIMPLE_JOYSTICK = 1, RC_DIV_JOYSTICK, RC_IMU
@@ -61,15 +62,9 @@ extern uint64_t txPipeAdress;
 extern RC_Controler_Status rc_status;
 
 
-//PIPES FOR NRF24
-typedef union _PipeAdress {
-	uint8_t frame[8];
-	uint64_t var;
 
-} PipeAdress;
 
-extern PipeAdress rx_pipe_adress;
-extern PipeAdress tx_pipe_adress;
+
 
 uint16_t map_values(uint16_t x, uint16_t in_min, uint16_t in_max, uint16_t out_min,
 		uint16_t out_max);

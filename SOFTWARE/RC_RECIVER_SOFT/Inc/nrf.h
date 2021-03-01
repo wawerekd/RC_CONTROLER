@@ -28,7 +28,6 @@
 #include <string.h>
 #include<stdio.h>
 
-
 //1. Pinout Ports and Pin
 //#define nrf_CSN_PORT		GPIOD
 //#define nrf_CSN_PIN			GPIO_PIN_0
@@ -59,28 +58,51 @@ typedef enum {
 } rf24_crclength_e;
 //4. Pipe address registers
 static const uint8_t NRF24_ADDR_REGS[7] =
-{
-REG_RX_ADDR_P0,
-REG_RX_ADDR_P1,
-REG_RX_ADDR_P2,
-REG_RX_ADDR_P3,
-REG_RX_ADDR_P4,
-REG_RX_ADDR_P5,
-REG_TX_ADDR
-};
+		{
+		REG_RX_ADDR_P0,
+		REG_RX_ADDR_P1,
+		REG_RX_ADDR_P2,
+		REG_RX_ADDR_P3,
+		REG_RX_ADDR_P4,
+		REG_RX_ADDR_P5,
+		REG_TX_ADDR
+		};
 //5. RX_PW_Px registers addresses
 static const uint8_t RF24_RX_PW_PIPE[6] =
-{
-REG_RX_PW_P0,
-REG_RX_PW_P1,
-REG_RX_PW_P2,
-REG_RX_PW_P3,
-REG_RX_PW_P4,
-REG_RX_PW_P5
-};
+		{
+		REG_RX_PW_P0,
+		REG_RX_PW_P1,
+		REG_RX_PW_P2,
+		REG_RX_PW_P3,
+		REG_RX_PW_P4,
+		REG_RX_PW_P5
+		};
+
+typedef enum {
+	RC_RECIVER, RC_CONTROLER
+} SystemRole;
+
+typedef union _PipeAdress {
+	uint8_t frame[8];
+	uint64_t var;
+
+} PipeAdress;
 
 
+typedef struct _NRF24_InitStruct {
 
+	uint16_t id;
+	SystemRole role;
+	PipeAdress tx_pipe;
+	PipeAdress rx_pipe;
+
+	uint8_t radio_channel;  // 0 - 126
+	uint8_t data_rate;
+	bool auto_ack; 			//
+
+} NRF24_InitStruct;
+
+void init_NRF24_sytem_mebmer(NRF24_InitStruct * const member);
 
 //**** Functions prototypes ****//
 //Microsecond delay function

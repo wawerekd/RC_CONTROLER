@@ -20,12 +20,6 @@ extern uint8_t binding_data_tx[8];
 extern uint64_t rxPipeAdress;
 extern uint64_t txPipeAdress;
 
-//PIPES FOR NRF24
-typedef union _PipeAdress {
-	uint8_t frame[8];
-	uint64_t var;
-
-} PipeAdress;
 
 typedef enum {
 	CONTROLER, RECIVER

@@ -32,7 +32,7 @@ typedef struct _Button_State {
 Button_State buttons_state[NUM_OF_BUTTONS];
 
 enum BUTTONS {
-	ENCODER = 0, JOY1, JOY2,
+	ENCODER, JOY1, JOY2,
 };
 
 void clear_buttons_event(uint8_t button_number);

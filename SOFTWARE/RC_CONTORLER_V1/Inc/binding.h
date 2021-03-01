@@ -30,6 +30,7 @@
 #define BINDING_H_
 
 #include "main.h"
+#include "rc_controler.h"
 
 #define SIZE(x) sizeof(x)/sizeof(x[0])
 
@@ -38,15 +39,15 @@
 extern uint8_t binding_key_reciver[8];
 extern uint8_t binding_key_controler[8];
 
-typedef enum { RC_RECIVER, RC_CONTROLER} SystemRole ;
-
-typedef struct _RC_System_Member{
-
-	SystemRole system_role;
-	uint32_t system_ID;
-	uint64_t nrf_pipe_adress;
-
-}_RC_System_Member;
+//typedef enum { RC_RECIVER, RC_CONTROLER} SystemRole ;
+//
+//typedef struct _RC_System_Member{
+//
+//	SystemRole system_role;
+//	uint32_t system_ID;
+//	uint64_t nrf_pipe_adress;
+//
+//}_RC_System_Member;
 
 
 void bind_event_controler();

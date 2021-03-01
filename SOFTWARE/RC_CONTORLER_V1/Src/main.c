@@ -224,25 +224,26 @@ int main(void)
 	// NRF24L01
 	initNRF24andPrintStatus();
 
-	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, SET); //wlacz zasilanie do MPU
-	HAL_Delay(10);
-
-	rc_status.mpu_init_succes = MPU6050_Init(&hi2c2, &imu, MPU6050_Device_0,
-			MPU6050_Accelerometer_2G,
-			MPU6050_Gyroscope_250s);
-	HAL_Delay(10);
-
-	// TO DO - check why MPU not always starts
-	if (mpu_result == MPU6050_Result_Ok)
-	{
-		//HAL_GPIO_WritePin(LED_BAT_GPIO_Port,LED_BAT_Pin,SET);
-		printf("MPU6050  initialization SUCCESS!\n");
-
-	} else
-	{
-		printf("MPU6050 initialization FAIL!\n");
-	}
-
+//	HAL_GPIO_WritePin(MPU_PWR_GPIO_Port, MPU_PWR_Pin, SET); //wlacz zasilanie do MPU
+//	HAL_Delay(10);
+//
+//	rc_status.mpu_init_succes = MPU6050_Init(&hi2c2, &imu, MPU6050_Device_0,
+//			MPU6050_Accelerometer_2G,
+//			MPU6050_Gyroscope_250s);
+//	HAL_Delay(10);
+//
+//	// TO DO - check why MPU not always starts
+//	if (mpu_result == MPU6050_Result_Ok)
+//	{
+//		//HAL_GPIO_WritePin(LED_BAT_GPIO_Port,LED_BAT_Pin,SET);
+//		printf("MPU6050  initialization SUCCESS!\n");
+//
+//	} else
+//	{
+//		printf("MPU6050 initialization FAIL!\n");
+//	}
+    //MPU6050
+	init_mpu6050();
 	//RC_CHANNELS_INIT  -  TO_D0
 	update_rc_mode(RC_SIMPLE_JOYSTICK);
 

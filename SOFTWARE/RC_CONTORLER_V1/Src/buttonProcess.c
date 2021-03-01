@@ -21,6 +21,7 @@ void clear_buttons_event(uint8_t button_number) {
 }
 
 void read_buttons_state() {
+
 	buttons_state[ENCODER].actual_state = !HAL_GPIO_ReadPin(ENC_PB_GPIO_Port,
 			ENC_PB_Pin);
 	buttons_state[JOY1].actual_state = !HAL_GPIO_ReadPin(JOY1_PB_GPIO_Port,

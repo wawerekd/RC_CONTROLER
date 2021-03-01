@@ -2,23 +2,23 @@
 #define NRF_H_
 
 /*
-Library:					NRF24L01/NRF24L01+
-Written by:				Mohamed Yaqoob (MYaqoobEmbedded YouTube Channel)
-Date Written:			10/11/2018
-Last modified:		-/-
-Description:			This is an STM32 device driver library for the NRF24L01 Nordic Radio transceiver, using STM HAL libraries
+ Library:					NRF24L01/NRF24L01+
+ Written by:				Mohamed Yaqoob (MYaqoobEmbedded YouTube Channel)
+ Date Written:			10/11/2018
+ Last modified:		-/-
+ Description:			This is an STM32 device driver library for the NRF24L01 Nordic Radio transceiver, using STM HAL libraries
 
-References:				This library was written based on the Arduino NRF24 Open-Source library by J. Coliz and the NRF24 datasheet
-										- https://github.com/maniacbug/RF24
-										- https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf
+ References:				This library was written based on the Arduino NRF24 Open-Source library by J. Coliz and the NRF24 datasheet
+ - https://github.com/maniacbug/RF24
+ - https://www.sparkfun.com/datasheets/Components/SMD/nRF24L01Pluss_Preliminary_Product_Specification_v1_0.pdf
 
-* Copyright (C) 2018 - M. Yaqoob
-   This is a free software under the GNU license, you can redistribute it and/or modify it under the terms
-   of the GNU General Public Licenseversion 3 as published by the Free Software Foundation.
+ * Copyright (C) 2018 - M. Yaqoob
+ This is a free software under the GNU license, you can redistribute it and/or modify it under the terms
+ of the GNU General Public Licenseversion 3 as published by the Free Software Foundation.
 
-   This software library is shared with puplic for educational purposes, without WARRANTY and Author is not liable for any damages caused directly
-   or indirectly by this software, read more about this on the GNU General Public License.
-*/
+ This software library is shared with puplic for educational purposes, without WARRANTY and Author is not liable for any damages caused directly
+ or indirectly by this software, read more about this on the GNU General Public License.
+ */
 
 //List of header files
 #include "stm32f1xx_hal.h"   //** Change this according to your STM32 series **//
@@ -26,7 +26,9 @@ References:				This library was written based on the Arduino NRF24 Open-Source l
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include<stdio.h>
+#include <stdio.h>
+#include "rc_controler.h"
+
 //1. Pinout Ports and Pin
 //#define nrf_CSN_PORT		GPIOD
 //#define nrf_CSN_PIN			GPIO_PIN_0
@@ -42,21 +44,22 @@ typedef enum {
 	RF24_PA_m6dB,
 	RF24_PA_0dB,
 	RF24_PA_ERROR
-}rf24_pa_dbm_e ;
+} rf24_pa_dbm_e;
 //2. NRF24_setDataRate() input
 typedef enum {
 	RF24_1MBPS = 0,
 	RF24_2MBPS,
 	RF24_250KBPS
-}rf24_datarate_e;
+} rf24_datarate_e;
 //3. NRF24_setCRCLength() input
 typedef enum {
 	RF24_CRC_DISABLED = 0,
 	RF24_CRC_8,
 	RF24_CRC_16
-}rf24_crclength_e;
+} rf24_crclength_e;
 //4. Pipe address registers
-static const uint8_t NRF24_ADDR_REGS[7] = {
+static const uint8_t NRF24_ADDR_REGS[7] =
+		{
 		REG_RX_ADDR_P0,
 		REG_RX_ADDR_P1,
 		REG_RX_ADDR_P2,
@@ -64,19 +67,47 @@ static const uint8_t NRF24_ADDR_REGS[7] = {
 		REG_RX_ADDR_P4,
 		REG_RX_ADDR_P5,
 		REG_TX_ADDR
-};
+		};
 //5. RX_PW_Px registers addresses
-static const uint8_t RF24_RX_PW_PIPE[6] = {
+static const uint8_t RF24_RX_PW_PIPE[6] =
+		{
 		REG_RX_PW_P0,
 		REG_RX_PW_P1,
 		REG_RX_PW_P2,
 		REG_RX_PW_P3,
 		REG_RX_PW_P4,
 		REG_RX_PW_P5
-};
-//**** Functions prototypes ****//
+		};
+
+typedef enum {
+	RC_RECIVER, RC_CONTROLER
+} SystemRole;
+
+//PIPES FOR NRF24
+typedef union _PipeAdress {
+	uint8_t frame[8];
+	uint64_t var;
+
+} PipeAdress;
+
+typedef struct _NRF24_InitStruct {
+
+	uint16_t id;
+	SystemRole role;
+	PipeAdress tx_pipe;
+	PipeAdress rx_pipe;
+
+	uint8_t radio_channel;  // 0 - 126
+	uint8_t data_rate;
+	bool auto_ack; 			//
+
+} NRF24_InitStruct;
+
+void init_NRF24_sytem_mebmer(NRF24_InitStruct * const member);
 //Microsecond delay function
 void NRF24_DelayMicroSeconds(uint32_t uSec);
+
+//**** Functions prototypes ****//
 
 //1. Chip Select function
 void NRF24_csn(int mode);
@@ -102,18 +133,19 @@ void NRF24_flush_rx(void);
 uint8_t NRF24_get_status(void);
 
 //12. Begin function
-void NRF24_begin(GPIO_TypeDef *nrf24PORT, uint16_t nrfCSN_Pin, uint16_t nrfCE_Pin, SPI_HandleTypeDef nrfSPI);
+void NRF24_begin(GPIO_TypeDef *nrf24PORT, uint16_t nrfCSN_Pin, uint16_t nrfCE_Pin,
+		SPI_HandleTypeDef nrfSPI);
 //13. Listen on open pipes for reading (Must call NRF24_openReadingPipe() first)
 void NRF24_startListening(void);
 //14. Stop listening (essential before any write operation)
 void NRF24_stopListening(void);
 
 //15. Write(Transmit data), returns true if successfully sent
-bool NRF24_write( const void* buf, uint8_t len );
+bool NRF24_write(const void* buf, uint8_t len);
 //16. Check for available data to read
 bool NRF24_available(void);
 //17. Read received data
-bool NRF24_read( void* buf, uint8_t len );
+bool NRF24_read(void* buf, uint8_t len);
 //18. Open Tx pipe for writing (Cannot perform this while Listenning, has to call NRF24_stopListening)
 void NRF24_openWritingPipe(uint64_t address);
 //19. Open reading pipe
@@ -134,43 +166,43 @@ void NRF24_enableAckPayload(void);
 void NRF24_enableDynamicPayloads(void);
 void NRF24_disableDynamicPayloads(void);
 //27. Check if module is NRF24L01+ or normal module
-bool NRF24_isNRF_Plus(void) ;
+bool NRF24_isNRF_Plus(void);
 //28. Set Auto Ack for all
 void NRF24_setAutoAck(bool enable);
 //29. Set Auto Ack for certain pipe
-void NRF24_setAutoAckPipe( uint8_t pipe, bool enable ) ;
+void NRF24_setAutoAckPipe(uint8_t pipe, bool enable);
 //30. Set transmit power level
-void NRF24_setPALevel( rf24_pa_dbm_e level ) ;
+void NRF24_setPALevel(rf24_pa_dbm_e level);
 //31. Get transmit power level
-rf24_pa_dbm_e NRF24_getPALevel( void ) ;
+rf24_pa_dbm_e NRF24_getPALevel(void);
 //32. Set data rate (250 Kbps, 1Mbps, 2Mbps)
 bool NRF24_setDataRate(rf24_datarate_e speed);
 //33. Get data rate
-rf24_datarate_e NRF24_getDataRate( void );
+rf24_datarate_e NRF24_getDataRate(void);
 //34. Set crc length (disable, 8-bits or 16-bits)
 void NRF24_setCRCLength(rf24_crclength_e length);
 //35. Get CRC length
 rf24_crclength_e NRF24_getCRCLength(void);
 //36. Disable CRC
-void NRF24_disableCRC( void ) ;
+void NRF24_disableCRC(void);
 //37. power up
-void NRF24_powerUp(void) ;
+void NRF24_powerUp(void);
 //38. power down
 void NRF24_powerDown(void);
 //39. Check if data are available and on which pipe (Use this for multiple rx pipes)
 bool NRF24_availablePipe(uint8_t* pipe_num);
 //40. Start write (for IRQ mode)
-void NRF24_startWrite( const void* buf, uint8_t len );
+void NRF24_startWrite(const void* buf, uint8_t len);
 //41. Write acknowledge payload
 void NRF24_writeAckPayload(uint8_t pipe, const void* buf, uint8_t len);
 //42. Check if an Ack payload is available
 bool NRF24_isAckPayloadAvailable(void);
 //43. Check interrupt flags
-void NRF24_whatHappened(bool *tx_ok,bool *tx_fail,bool *rx_ready);
+void NRF24_whatHappened(bool *tx_ok, bool *tx_fail, bool *rx_ready);
 //44. Test if there is a carrier on the previous listenning period (useful to check for intereference)
 bool NRF24_testCarrier(void);
 //45. Test if a signal carrier exists (=> -64dB), only for NRF24L01+
-bool NRF24_testRPD(void) ;
+bool NRF24_testRPD(void);
 //46. Reset Status
 void NRF24_resetStatus(void);
 //47. ACTIVATE cmd
@@ -189,9 +221,6 @@ void printConfigReg(void);
 void nrf24_DebugUART_Init(UART_HandleTypeDef nrf24Uart);
 //5. FIFO Status
 void printFIFOstatus(void);
-
-
-
 
 // User modifications
 //**********  Init Functions **********//

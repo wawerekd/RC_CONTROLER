@@ -81,6 +81,12 @@ UART_HandleTypeDef huart1;
 
 /* USER CODE BEGIN PV */
 
+//NRF Settings struct
+NRF24_InitStruct nrf24_config;
+
+
+
+
 //Main struct for containig rc_reciver status
 ReciverStatus reciver_status;
 
@@ -196,7 +202,7 @@ int main(void)
 	if (reciver_status.mode == NORMAL_MODE)
 	{
 
-		initNRF24andPrintStatus();
+		init_NRF24_sytem_mebmer(&nrf24_config);
 
 	}
 
